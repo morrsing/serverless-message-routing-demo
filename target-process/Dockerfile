@@ -1,0 +1,19 @@
+FROM node:7.8.0-alpine
+
+# Create app directory
+RUN mkdir -p /usr/src/app
+WORKDIR /usr/src/app
+
+# Install app dependencies
+COPY package.json /usr/src/app/
+RUN npm install
+
+# Bundle app source
+COPY index.js /usr/src/app
+COPY constants.js /usr/src/app
+
+ENV LOG_LEVEL info
+ENV FREQUENCY 1000 # 1 second
+ENV METHOD GET
+
+CMD ["node", "index.js"]

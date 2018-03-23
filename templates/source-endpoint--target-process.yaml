@@ -1,0 +1,240 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Creates a route between a source endpoint and a target process.
+
+Parameters:
+  SourceEndpoint:
+    Type: String
+    Description: Enter an source endpoint to poll for new messages.
+  SourceRequestMethod:
+    Type: String
+    Description: >
+      Choose a method with which to make HTTP request of the source endpoint.
+    AllowedValues:
+      - GET
+      - PUT
+      - POST
+      - DELETE
+Resources:
+  QueueApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Join ['-', [ !Ref 'AWS::StackName', 'QueueApi' ] ]
+  QueueResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref QueueApi
+      ParentId: !GetAtt [ QueueApi, RootResourceId ]
+      PathPart: messages
+  QueueApiMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: GET
+
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Credentials: !GetAtt [ApiGatewayRole, 'Arn' ]
+        IntegrationResponses:
+          - StatusCode: 200
+        PassthroughBehavior: WHEN_NO_TEMPLATES
+        Uri: !Join [ '', [ 'arn:aws:apigateway:', !Ref 'AWS::Region', ':lambda:path/2015-03-31/functions/', !GetAtt [ Dequeuer, 'Arn' ], '/invocations' ] ]
+      MethodResponses:
+        - StatusCode: 200
+      ResourceId: !Ref QueueResource
+      RestApiId: !Ref QueueApi
+  QueueApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: QueueApiMethod
+    Properties:
+      RestApiId: !Ref QueueApi
+  QueueApiStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      DeploymentId: !Ref QueueApiDeployment
+      MethodSettings:
+        - HttpMethod: "*"
+          ResourcePath: "/*"
+      RestApiId: !Ref QueueApi
+      StageName: LATEST
+
+  ApiGatewayRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 'apigateway.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      RoleName: !Join ['', [ !Ref 'AWS::StackName', 'ApiGatewayRole' ] ]
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AWSLambdaFullAccess'
+
+  QueueStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: !Join [ '-', [!Ref 'AWS::StackName', 'QueueStream'] ]
+      ShardCount: 1
+
+  Dequeuer:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: "f12f301f-messaging-demo"
+        S3Key: "lambdas/dequeuer-lambda.zip"
+      Description: Messaging Demo Dequeuer
+      Environment:
+        Variables:
+          KINESIS_STREAM_ID: !Ref QueueStream
+          KINESIS_SHARD_ID: "shardId-000000000000"
+      Handler: index.default
+      Role: !GetAtt [LambdaExecutionRole, 'Arn' ]
+      Runtime: nodejs6.10
+      Timeout: 10
+  Transformer:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: "f12f301f-messaging-demo"
+        S3Key: "lambdas/transformer-lambda.zip"
+      Description: Messaging Demo Transformer
+      Handler: index.default
+      Role: !GetAtt [LambdaExecutionRole, 'Arn' ]
+      Runtime: nodejs6.10
+      Timeout: 10
+  QueueEmitter:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: "f12f301f-messaging-demo"
+        S3Key: "lambdas/queue-emitter-lambda.zip"
+      Description: Messaging Demo Queue Emitter
+      Environment:
+        Variables:
+          KINESIS_STREAM_ID: !Ref QueueStream
+          KINESIS_SHARD_ID: "shardId-000000000000"
+      Handler: index.default
+      Role: !GetAtt [LambdaExecutionRole, 'Arn' ]
+      Runtime: nodejs6.10
+      Timeout: 10
+
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 'lambda.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      RoleName: !Join ['', [ !Ref 'AWS::StackName', 'LambdaExecutionRole' ] ]
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AWSStepFunctionsFullAccess'
+        - 'arn:aws:iam::aws:policy/AmazonKinesisFullAccess'
+        - 'arn:aws:iam::aws:policy/CloudWatchLogsFullAccess'
+
+  PollIngestor:
+    Type: AWS::Lambda::Function
+    DependsOn: MessageRoute
+    Properties:
+      Code:
+        S3Bucket: "f12f301f-messaging-demo"
+        S3Key: "lambdas/poll-ingestor-lambda.zip"
+      Description: Messaging Demo Poll Ingestor
+      Environment:
+        Variables:
+          ENDPOINT: !Ref SourceEndpoint
+          METHOD: !Ref SourceRequestMethod
+          STATE_MACHINE_ARN: !Ref MessageRoute
+      Handler: index.default
+      Role: !GetAtt [LambdaExecutionRole, 'Arn' ]
+      Runtime: nodejs6.10
+      Timeout: 10
+  AllowEventLambdaInvocation:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref PollIngestor
+      Principal: 'events.amazonaws.com'
+
+  RunEveryMinute:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Trigger the route every minute.
+      ScheduleExpression: 'rate(1 minute)'
+      State: ENABLED
+      Targets:
+        - Id: !Join [ '-', [ !Ref 'AWS::StackName', 'EventTarget' ] ]
+          Arn: !GetAtt [PollIngestor, 'Arn' ]
+
+  MessageRouteTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 'states.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      RoleName: !Join ['', [ !Ref 'AWS::StackName', 'MessageRouteTaskExecutionRole' ] ]
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaRole'
+
+  MessageRoute:
+    Type: "AWS::StepFunctions::StateMachine"
+    Properties:
+      StateMachineName: !Join [ '-', [ !Ref 'AWS::StackName', 'StateMachine' ] ]
+      DefinitionString: !Sub
+        - |-
+          {
+            "Comment": "An example state machine that routes a message from a Poll Ingestor to a Push Emitter.",
+            "StartAt": "Transform",
+            "States": {
+              "Transform": {
+                "Type": "Task",
+                "Resource": "${transformerLambdaArn}",
+                "Next": "Queue",
+                "Retry": [
+                  {
+                    "ErrorEquals": [
+                      "States.ALL"
+                    ],
+                    "IntervalSeconds": 1,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2
+                  }
+                ]
+              },
+              "Queue": {
+                "Type": "Task",
+                "Resource": "${queueEmitterLambdaArn}",
+                "Retry": [
+                  {
+                    "ErrorEquals": [
+                      "States.ALL"
+                    ],
+                    "IntervalSeconds": 1,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2
+                  }
+                ],
+                "End": true
+              }
+            }
+          }
+        - transformerLambdaArn: !GetAtt [ Transformer, Arn ]
+          queueEmitterLambdaArn: !GetAtt [ QueueEmitter, Arn ]
+      RoleArn: !GetAtt [ MessageRouteTaskExecutionRole, Arn ]
+Outputs:
+  EndpointMethod:
+    Description: HTTP method to retrieving messages from the route.
+    Value: GET
+  EndpointUrl:
+    Description: Endpoint where the messages can be retrieved.
+    Value: !Join ['', [ 'https://', !Ref QueueApi, '.execute-api.', !Ref 'AWS::Region', '.amazonaws.com/', !Ref QueueApiStage, '/messages'] ]

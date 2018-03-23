@@ -1,0 +1,214 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Creates a route between a source process and a target endpoint.
+Parameters:
+  TargetEndpoint:
+    Type: String
+    Description: Enter a targret endpoint to push new messages onto.
+Resources:
+  IngestionApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Join ['-', [ !Ref 'AWS::StackName', 'IngestionApi' ] ]
+  IngestionResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref IngestionApi
+      ParentId: !GetAtt [ IngestionApi, RootResourceId ]
+      PathPart: messages
+  IngestionApiMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: POST
+      Integration:
+        Type: AWS
+        IntegrationHttpMethod: POST
+        Credentials: !GetAtt [KinesisStreamPutRecordsRole, 'Arn' ]
+        IntegrationResponses:
+          - StatusCode: 200
+        PassthroughBehavior: WHEN_NO_TEMPLATES
+        RequestTemplates:
+          application/json: !Sub
+            - |-
+              {
+                  "StreamName": "${streamName}",
+                  "Records": [
+                     #foreach($elem in $input.path('$'))
+                        {
+                          "Data": "$util.base64Encode($elem)",
+                          "PartitionKey": "shardId-000000000000"
+                        }#if($foreach.hasNext),#end
+                      #end
+                  ]
+              }
+            - streamName: !Ref IngestionStream
+        Uri: arn:aws:apigateway:us-east-1:kinesis:action/PutRecords
+      MethodResponses:
+        - StatusCode: 200
+      ResourceId: !Ref IngestionResource
+      RestApiId: !Ref IngestionApi
+  IngestionApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: IngestionApiMethod
+    Properties:
+      RestApiId: !Ref IngestionApi
+  IngestionApiStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      DeploymentId: !Ref IngestionApiDeployment
+      MethodSettings:
+        - HttpMethod: "*"
+          ResourcePath: "/*"
+      RestApiId: !Ref IngestionApi
+      StageName: LATEST
+
+  KinesisStreamPutRecordsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 'apigateway.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      RoleName: !Join ['', [ !Ref 'AWS::StackName', 'KinesisStreamPutRecordsRole' ] ]
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonKinesisFullAccess'
+
+  IngestionStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: !Join [ '-', [!Ref 'AWS::StackName', 'IngestionStream'] ]
+      ShardCount: 1
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 'lambda.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      RoleName: !Join ['', [ !Ref 'AWS::StackName', 'LambdaExecutionRole' ] ]
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AWSStepFunctionsFullAccess'
+        - 'arn:aws:iam::aws:policy/AmazonKinesisFullAccess'
+        - 'arn:aws:iam::aws:policy/CloudWatchLogsFullAccess'
+  MessageRouteTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 'states.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      RoleName: !Join ['', [ !Ref 'AWS::StackName', 'MessageRouteTaskExecutionRole' ] ]
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaRole'
+
+  SinkIngestor:
+    Type: AWS::Lambda::Function
+    DependsOn: MessageRoute
+    Properties:
+      Code:
+        S3Bucket: "f12f301f-messaging-demo"
+        S3Key: "lambdas/sink-ingestor-lambda.zip"
+      Description: Messaging Demo Sink Ingestor
+      Environment:
+        Variables:
+          STATE_MACHINE_ARN: !Ref MessageRoute
+      Handler: index.default
+      Role: !GetAtt [LambdaExecutionRole, 'Arn' ]
+      Runtime: nodejs6.10
+      Timeout: 10
+  SinkIngestorTrigger:
+    Type: "AWS::Lambda::EventSourceMapping"
+    Properties:
+      EventSourceArn: !GetAtt [IngestionStream, 'Arn' ]
+      FunctionName: !GetAtt [ SinkIngestor, 'Arn' ]
+      StartingPosition: LATEST
+
+  Transformer:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: "f12f301f-messaging-demo"
+        S3Key: "lambdas/transformer-lambda.zip"
+      Description: Messaging Demo Transformer
+      Handler: index.default
+      Role: !GetAtt [LambdaExecutionRole, 'Arn' ]
+      Runtime: nodejs6.10
+      Timeout: 10
+  PushEmitter:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: "f12f301f-messaging-demo"
+        S3Key: "lambdas/push-emitter-lambda.zip"
+      Description: Messaging Demo Push Emitter
+      Environment:
+        Variables:
+          ENDPOINT: !Ref TargetEndpoint
+      Handler: index.default
+      Role: !GetAtt [LambdaExecutionRole, 'Arn' ]
+      Runtime: nodejs6.10
+      Timeout: 10
+
+  MessageRoute:
+    Type: "AWS::StepFunctions::StateMachine"
+    Properties:
+      StateMachineName: !Join [ '-', [ !Ref 'AWS::StackName', 'StateMachine' ] ]
+      DefinitionString: !Sub
+        - |-
+          {
+            "Comment": "An example state machine that routes a message from a Sink Ingestor to a Push Emitter.",
+            "StartAt": "Transform",
+            "States": {
+              "Transform": {
+                "Type": "Task",
+                "Resource": "${transformerLambdaArn}",
+                "Next": "Push",
+                "Retry": [
+                  {
+                    "ErrorEquals": [
+                      "States.ALL"
+                    ],
+                    "IntervalSeconds": 1,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2
+                  }
+                ]
+              },
+              "Push": {
+                "Type": "Task",
+                "Resource": "${pushEmitterLambdaArn}",
+                "Retry": [
+                  {
+                    "ErrorEquals": [
+                      "States.ALL"
+                    ],
+                    "IntervalSeconds": 1,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2
+                  }
+                ],
+                "End": true
+              }
+            }
+          }
+        - transformerLambdaArn: !GetAtt [ Transformer, Arn ]
+          pushEmitterLambdaArn: !GetAtt [ PushEmitter, Arn ]
+      RoleArn: !GetAtt [ MessageRouteTaskExecutionRole, Arn ]
+Outputs:
+  EndpointMethod:
+    Description: HTTP method to sending messages to the route.
+    Value: POST
+  EndpointUrl:
+    Description: Endpoint where the messages can be sent.
+    Value: !Join ['', [ 'https://', !Ref IngestionApi, '.execute-api.', !Ref 'AWS::Region', '.amazonaws.com/', !Ref IngestionApiStage, '/messages'] ]

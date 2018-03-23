@@ -1,0 +1,167 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  AWS CloudFormation template to create a new Fargate
+  Cluster and networking (optionally) to support the
+  sources and targets of the messaging demo.
+Parameters:
+  EcsClusterName:
+    Type: String
+    Description: >
+      Specifies the ECS Cluster Name with which the resources would be
+      associated
+    Default: default
+  VpcId:
+    Type: String
+    Description: >
+      Optional - Specifies the ID of an existing VPC in which to launch
+      your container instances. If you specify a VPC ID, you must specify a list of
+      existing subnets in that VPC. If you do not specify a VPC ID, a new VPC is created
+      with atleast 1 subnet.
+    Default: ''
+    AllowedPattern: "^(?:vpc-[0-9a-f]{8}|)$"
+    ConstraintDescription: >
+      VPC Id must begin with 'vpc-' or leave blank to have a
+      new VPC created
+  VpcCidr:
+    Type: String
+    Description: Optional - Specifies the CIDR Block of VPC
+    Default: ''
+  SubnetIds:
+    Type: CommaDelimitedList
+    Description: >
+      Optional - Specifies the Comma separated list of existing VPC Subnet
+      Ids where ECS instances will run
+    Default: ''
+  SubnetCidr1:
+    Type: String
+    Description: Specifies the CIDR Block of Subnet 1
+    Default: ''
+  SubnetCidr2:
+    Type: String
+    Description: Specifies the CIDR Block of Subnet 2
+    Default: ''
+  SecurityIngressFromPort:
+    Type: Number
+    Description: >
+      Optional - Specifies the Start of Security Group port to open on
+      ECS instances - defaults to port 0
+    Default: '0'
+  SecurityIngressToPort:
+    Type: Number
+    Description: >
+      Optional - Specifies the End of Security Group port to open on ECS
+      instances - defaults to port 65535
+    Default: '65535'
+  SecurityIngressCidrIp:
+    Type: String
+    Description: >
+      Optional - Specifies the CIDR/IP range for Security Ports - defaults
+      to 0.0.0.0/0
+    Default: 0.0.0.0/0
+  VpcAvailabilityZones:
+    Type: CommaDelimitedList
+    Description: >
+      Specifies a comma-separated list of 2 VPC Availability Zones for
+      the creation of new subnets. These zones must have the available status.
+    Default: ''
+Conditions:
+  CreateNewVpc:
+    !Equals [!Ref VpcId, '']
+  CreateSubnet1: !And
+    - !Not [!Equals [!Ref SubnetCidr1, '']]
+    - !Condition CreateNewVpc
+  CreateSubnet2: !And
+    - !Not [!Equals [!Ref SubnetCidr2, '']]
+    - !Condition CreateSubnet1
+Resources:
+  EcsCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Ref EcsClusterName
+  Vpc:
+    Condition: CreateSubnet1
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+  PubSubnetAz1:
+    Condition: CreateSubnet1
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Ref SubnetCidr1
+      AvailabilityZone: !Select [ 0, !Ref VpcAvailabilityZones ]
+      Tags:
+        -
+          Key: "Name"
+          Value: !Join [ "/", [ !Ref EcsClusterName , 'Public' ] ]
+  PubSubnetAz2:
+    Condition: CreateSubnet2
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Ref SubnetCidr2
+      AvailabilityZone: !Select [ 1, !Ref VpcAvailabilityZones ]
+      Tags:
+        -
+          Key: "Name"
+          Value: !Join [ "/", [ !Ref EcsClusterName , 'Public' ] ]
+
+  InternetGateway:
+    Condition: CreateSubnet1
+    Type: AWS::EC2::InternetGateway
+  AttachGateway:
+    Condition: CreateSubnet1
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+  RouteViaIgw:
+    Condition: CreateSubnet1
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+  PublicRouteViaIgw:
+    Condition: CreateSubnet1
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref RouteViaIgw
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  PubSubnet1RouteTableAssociation:
+    Condition: CreateSubnet1
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PubSubnetAz1
+      RouteTableId: !Ref RouteViaIgw
+  PubSubnet2RouteTableAssociation:
+    Condition: CreateSubnet2
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PubSubnetAz2
+      RouteTableId: !Ref RouteViaIgw
+  EcsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ECS Allowed Ports
+      VpcId: !If [ CreateSubnet1, !Ref Vpc, !Ref VpcId ]
+      SecurityGroupIngress:
+        IpProtocol: tcp
+        FromPort: !Ref SecurityIngressFromPort
+        ToPort: !Ref SecurityIngressToPort
+        CidrIp: !Ref SecurityIngressCidrIp
+Outputs:
+  EcsCluster:
+    Description: The ARN of the ECS Cluster that was created.
+    Value: !Ref EcsCluster
+  VpcId:
+    Description: The ID of the VPC either created or used.
+    Value: !If [ CreateSubnet1, !Ref Vpc, !Ref VpcId ]
+  Subnet1:
+    Description: The ID of the first subnet either created or used.
+    Value:  !If [ CreateSubnet1, !Ref PubSubnetAz1, !Select [ 0, !Ref SubnetIds ] ]
+  Subnet2:
+    Description: The ID of the second subnet either created or used.
+    Value:  !If [ CreateSubnet1, !Ref PubSubnetAz2, !Select [ 1, !Ref SubnetIds ] ]

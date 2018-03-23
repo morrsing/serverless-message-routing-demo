@@ -1,0 +1,162 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  AWS CloudFormation template to create a new component in the
+  Messaging Demo.
+Parameters:
+  ExecutionRoleArn:
+    Type: String
+    Description: >
+      Optional - Enter either an ExecutionRoleArn or an ExecutionRoleName.
+      Specifies the ARN of an existing Execution Role that the
+      Amazon ECS container agent and the Docker daemon can assume. If you do not
+      specify an ARN, a new Execution Role is created for you.
+    Default: ''
+    AllowedPattern: "^(?:arn:aws:iam::[0-9]{12}:role/.+?|)$"
+    ConstraintDescription: >
+      Must be a valid ARN corresponding to an IAM Role assigned the
+      AmazonECSTaskExecutionRolePolicy policy or equivalent.
+  ExecutionRoleName:
+    Type: String
+    Description: >
+      Optional - Enter either an ExecutionRoleArn or an ExecutionRoleName.
+      Specifies the name of a new role to create that serves as the Execution
+      Role that the Amazon ECS container agent and the Docker daemon can assume.
+    Default: ''
+  EcsClusterArn:
+    Type: String
+    Description: >
+      Enter the ARN of the ECS Cluster on which to create the component as
+      an ECS Service.
+    AllowedPattern: "^arn:aws:ecs:.+?:[0-9]{12}:cluster/.+?$"
+    ConstraintDescription: Must be a valid ARN corresponding to an ECS Cluster.
+  VpcId:
+    Type: String
+    Description: >
+      Specifies the ID of an existing VPC in which to create an Application Load
+      Balancer to front the service.
+    AllowedPattern: "^vpc-[0-9a-f]{8}$"
+    ConstraintDescription: VPC Id must begin with 'vpc-'.
+  SubnetIds:
+    Type: CommaDelimitedList
+    Description: >
+      Specifies the Comma separated list of existing VPC Subnet
+      Ids where the Service should sit.
+    Default: ''
+  PointedAt:
+    Type: String
+    Description: >
+      The URL of an emitter API to which to point the component.
+  RequestMethod:
+    Type: String
+    Description: >
+      The method for making requests against an emitter API.
+    AllowedValues:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+  Frequency:
+    Type: Number
+    Description: >
+      The number of milliseconds between requests.
+    MinValue: 100
+    MaxValue: 10000
+    ConstraintDescription: Must be between 100ms and 10000ms (10 seconds).
+  LogLevel:
+    Type: String
+    Description: Select a level of log output. Verbose is recommended.
+    AllowedValues:
+      - error
+      - warn
+      - info
+      - verbose
+      - debug
+      - silly
+    Default: verbose
+
+Conditions:
+  CreateNewExecutionRole: !And
+    - !Equals [!Ref ExecutionRoleArn, '']
+    - !Not [!Equals [!Ref ExecutionRoleName, '']]
+
+Resources:
+  ExecutionRole:
+    Condition: CreateNewExecutionRole
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 'ecs-tasks.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      RoleName: !Ref ExecutionRoleName
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy'
+
+  ComponentLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Join ['/', [ '/ecs', !Ref 'AWS::StackName', 'Log' ] ]
+
+  TaskSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for component tasks.
+      VpcId: !Ref VpcId
+
+  ProcessTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Join ['-', [!Ref 'AWS::StackName', 'TaskFamily'] ]
+      NetworkMode: awsvpc
+      Cpu: 256
+      ExecutionRoleArn: !If [ CreateNewExecutionRole, !Ref ExecutionRole, !Ref ExecutionRoleArn ]
+      Memory: 512
+      ContainerDefinitions:
+        - Name: !Join ['-', [ !Ref 'AWS::StackName', 'Container' ] ]
+          Image: '196431283258.dkr.ecr.us-east-1.amazonaws.com/messaging-demo/target-process'
+          MemoryReservation: 128
+          PortMappings:
+            - ContainerPort: 3000
+          Environment:
+            - Name: LOG_LEVEL
+              Value: !Ref LogLevel
+            - Name: FREQUENCY
+              Value: !Ref Frequency
+            - Name: ENDPOINT
+              Value: !Ref PointedAt
+            - Name: METHOD
+              Value: !Ref RequestMethod
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Join ['/', [ '/ecs', !Ref 'AWS::StackName', 'Log' ] ]
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+  ComponentEndpointService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref EcsClusterArn
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 50
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+             - !Ref TaskSecurityGroup
+          Subnets: !Ref SubnetIds
+      ServiceName: !Join ['-', [ !Ref 'AWS::StackName', 'Service' ] ]
+      TaskDefinition: !Ref ProcessTaskDefinition
+
+Outputs:
+  PointedAt:
+    Description: Emitter to which the component will make requests.
+    Value: !Ref PointedAt
+  RequestMethod:
+    Description: Method for making HTTP requests against an emitter.
+    Value: !Ref RequestMethod

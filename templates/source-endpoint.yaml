@@ -1,0 +1,197 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  AWS CloudFormation template to create a new Source Endpoint in the
+  Messaging Demo.
+Parameters:
+  ExecutionRoleArn:
+    Type: String
+    Description: >
+      Optional - Enter either an ExecutionRoleArn or an ExecutionRoleName.
+      Specifies the ARN of an existing Execution Role that the
+      Amazon ECS container agent and the Docker daemon can assume. If you do not
+      specify an ARN, a new Execution Role is created for you.
+    Default: ''
+    AllowedPattern: "^(?:arn:aws:iam::[0-9]{12}:role/.+?|)$"
+    ConstraintDescription: >
+      Must be a valid ARN corresponding to an IAM Role assigned the
+      AmazonECSTaskExecutionRolePolicy policy or equivalent.
+  ExecutionRoleName:
+    Type: String
+    Description: >
+      Optional - Enter either an ExecutionRoleArn or an ExecutionRoleName.
+      Specifies the name of a new role to create that serves as the Execution
+      Role that the Amazon ECS container agent and the Docker daemon can assume.
+    Default: ''
+  BatchSize:
+    Type: Number
+    MinValue: 1
+    MaxValue: 100
+    Default: 10
+    Description: >
+      The batch size of messages to emit when requests are made of the endpoint.
+  EcsClusterArn:
+    Type: String
+    Description: >
+      Enter the ARN of the ECS Cluster on which to create the component as
+      an ECS Service.
+    AllowedPattern: "^arn:aws:ecs:.+?:[0-9]{12}:cluster/.+?$"
+    ConstraintDescription: Must be a valid ARN corresponding to an ECS Cluster.
+  VpcId:
+    Type: String
+    Description: >
+      Specifies the ID of an existing VPC in which to create an Application Load
+      Balancer to front the service.
+    AllowedPattern: "^vpc-[0-9a-f]{8}$"
+    ConstraintDescription: VPC Id must begin with 'vpc-'.
+  SubnetIds:
+    Type: CommaDelimitedList
+    Description: >
+      Specifies the Comma separated list of existing VPC Subnet
+      Ids where the Service should sit.
+    Default: ''
+  LogLevel:
+    Type: String
+    Description: Select a level of log output. Verbose is recommended.
+    AllowedValues:
+      - error
+      - warn
+      - info
+      - verbose
+      - debug
+      - silly
+    Default: verbose
+
+Conditions:
+  CreateNewExecutionRole: !And
+    - !Equals [!Ref ExecutionRoleArn, '']
+    - !Not [!Equals [!Ref ExecutionRoleName, '']]
+
+Resources:
+  ExecutionRole:
+    Condition: CreateNewExecutionRole
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 'ecs-tasks.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      RoleName: !Ref ExecutionRoleName
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy'
+
+  ComponentLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Join ['/', [ '/ecs', !Ref 'AWS::StackName', 'Log' ] ]
+
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ALB Allowed Ports
+      SecurityGroupIngress:
+        - IpProtocol: TCP
+          FromPort: 80
+          ToPort: 80
+          CidrIp: "0.0.0.0/0"
+      VpcId: !Ref VpcId
+  TaskSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for component tasks.
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: TCP
+          FromPort: 3000
+          ToPort: 3000
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+
+  ServiceLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      SecurityGroups:
+        - !Ref LoadBalancerSecurityGroup
+      Subnets: !Ref SubnetIds
+      Type: application
+      Scheme: "internet-facing"
+  ServiceLoadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+      - Type: forward
+        TargetGroupArn: !Ref ServiceLoadBalancerTargetGroup
+      LoadBalancerArn: !Ref ServiceLoadBalancer
+      Port: 80
+      Protocol: HTTP
+  ServiceLoadBalancerTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    DependsOn: ServiceLoadBalancer
+    Properties:
+      HealthCheckIntervalSeconds: 10
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      HealthCheckPath: '/'
+      HealthCheckPort: 3000
+      HealthCheckProtocol: HTTP
+      Port: 3000
+      Protocol: HTTP
+      VpcId: !Ref VpcId
+      TargetType: ip
+
+  EndpointTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Join ['-', [!Ref 'AWS::StackName', 'TaskFamily'] ]
+      NetworkMode: awsvpc
+      Cpu: 256
+      ExecutionRoleArn: !If [ CreateNewExecutionRole, !Ref ExecutionRole, !Ref ExecutionRoleArn ]
+      Memory: 512
+      ContainerDefinitions:
+        - Name: !Join ['-', [ !Ref 'AWS::StackName', 'Container' ] ]
+          Image: '196431283258.dkr.ecr.us-east-1.amazonaws.com/messaging-demo/source-endpoint'
+          MemoryReservation: 128
+          PortMappings:
+            - ContainerPort: 3000
+          Environment:
+            - Name: BATCH_SIZE
+              Value: !Ref BatchSize
+            - Name: LOG_LEVEL
+              Value: !Ref LogLevel
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Join ['/', [ '/ecs', !Ref 'AWS::StackName', 'Log' ] ]
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+  ComponentEndpointService:
+    Type: AWS::ECS::Service
+    DependsOn: ServiceLoadBalancerListener
+    Properties:
+      Cluster: !Ref EcsClusterArn
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 50
+      DesiredCount: 1
+      LaunchType: FARGATE
+      LoadBalancers:
+        - ContainerName: !Join ['-', [ !Ref 'AWS::StackName', 'Container' ] ]
+          ContainerPort: 3000
+          TargetGroupArn: !Ref ServiceLoadBalancerTargetGroup
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+             - !Ref TaskSecurityGroup
+          Subnets: !Ref SubnetIds
+      ServiceName: !Join ['-', [ !Ref 'AWS::StackName', 'Service' ] ]
+      TaskDefinition: !Ref EndpointTaskDefinition
+
+Outputs:
+  EndpointMethod:
+    Description: HTTP method for requesting from an endpoint.
+    Value: GET
+  EndpointUrl:
+    Description: Endpoint where the component is available.
+    Value: !Join [ '/', [ 'http:/', !GetAtt [ ServiceLoadBalancer, DNSName ], 'messages' ] ]

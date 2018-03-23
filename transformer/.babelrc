@@ -1,0 +1,9 @@
+{
+  "presets": ["env"],
+  "env": {
+    "test": {
+      "plugins": ["rewire"],
+      "presets": ["env"]
+    }
+  }
+}
