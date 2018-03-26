@@ -28,10 +28,10 @@ Please note: These routes and their various components are for demonstration pur
           4. [Target Process](#target-process)
   4. [Templates](#templates)
   5. [Deploying](#deploying)
-      1. [Deploying a Souce Endpoint-to-Target Endpoint Route with Simulators](deploying-a-source-endpoint-to-target-endpoint-route-with-simulators)
-      2. [Deploying a Souce Endpoint-to-Target Process Route with Simulators](deploying-a-source-endpoint-to-target-process-route-with-simulators)
-      3. [Deploying a Source Process-to-Target Endpoint Route with Simulators](deploying-a-source-process-to-target-endpoint-route-with-simulators)
-      4. [Deploying a Source Process-to_target-Process Route with Simulators](deploying-a-source-process-to-target-process-route-with-simulators)
+      1. [Deploying a Souce Endpoint-to-Target Endpoint Route with Simulators](#deploying-a-source-endpoint-to-target-endpoint-route-with-simulators)
+      2. [Deploying a Souce Endpoint-to-Target Process Route with Simulators](#deploying-a-source-endpoint-to-target-process-route-with-simulators)
+      3. [Deploying a Source Process-to-Target Endpoint Route with Simulators](#deploying-a-source-process-to-target-endpoint-route-with-simulators)
+      4. [Deploying a Source Process-to-Target-Process Route with Simulators](#deploying-a-source-process-to-target-process-route-with-simulators)
 
 ## Sources and Targets
 Sources and targets come in two flavors: endpoints and processes. An endpoint emits or receives a set of messages when
