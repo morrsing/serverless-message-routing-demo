@@ -5,6 +5,34 @@ The project also contains simulators of message sources that emit messages and t
 
 Please note: These routes and their various components are for demonstration purposes only. They are not production-ready. Much additional thinking would be needed around security, robustness, and other areas such as error handling and throughput. The routes are designed to demonstrate basic concepts.
 
+## Table of Contents
+  1. [Sources and Targets](#sources-and-targets)
+  2. [Routes](#routes)
+      1. [Souce Endpoint to Target Endpoint](#source-endpoint-to-target-endpoint)
+      2. [Source Endpoint to Target Process](#source-endpoint-to-target-process)
+      3. [Source Process to Target Endpoint](#source-process-to-target-endpoint)
+      4. [Source Process to Target Process](#source-process-to-target-process)
+  3. [Packages](#packages)
+      1. [Ingestors](#ingestors)
+          1. [Poll Ingestor](#poll-ingestor)
+          2. [Sink Ingestor](#sink-ingestor)
+      2. [Transformers](#transformers)
+          1. [Transformer](#transformer)
+      3. [Emitters](#emitters)
+          1. [Queue Emitter / Dequeuer](#queue-emitter--dequeuer)
+          2. [Push Emitter](#push-emitter)
+      4. [Simulators](#simulators)
+          1. [Source Endpoint](#source-endpoint)
+          2. [Source Process](#source-process)
+          3. [Target Endpoint](#target-endpoint)
+          4. [Target Process](#target-process)
+  4. [Templates](#templates)
+  5. [Deploying](#deploying)
+      1. [Deploying a Souce Endpoint-to-Target Endpoint Route with Simulators](deploying-a-source-endpoint-to-target-endpoint-route-with-simulators)
+      2. [Deploying a Souce Endpoint-to-Target Process Route with Simulators](deploying-a-source-endpoint-to-target-process-route-with-simulators)
+      3. [Deploying a Source Process-to-Target Endpoint Route with Simulators](deploying-a-source-process-to-target-endpoint-route-with-simulators)
+      4. [Deploying a Source Process-to_target-Process Route with Simulators](deploying-a-source-process-to-target-process-route-with-simulators)
+
 ## Sources and Targets
 Sources and targets come in two flavors: endpoints and processes. An endpoint emits or receives a set of messages when
 an HTTP request is made of it. A process emits or polls for messages at set intervals. As such, there are four source
@@ -31,17 +59,17 @@ Each is detailed below.
 
 This route uses CloudWatch Events to trigger an ingestor Lambda periodically. The ingestor Lambda polls the Source Endpoint when triggered, sending each message to a state machine defined in AWS Step Functions. Step Functions pushes the message through a set of transformers defined in Lambda, handling failures and retry logic. (In the example routes, only a single demonstrative transformer Lambda is defined.) The final step of the Step Function is an emitter Lambda, which pushes the message to the Target Endpoint by providing it on an HTTP POST request.
 
-### Source Process to Target Endpoint
-![Source Process to Target Endpoint Diagram](https://s3.amazonaws.com/f12f301f-messaging-demo/diagrams/source-process--target-endpoint.png "Source Process to Target Endpoint Diagram")
-
-This route deploys an endpoint in API Gateway that a Source Process can hit with a POST request containing new messages. From the perspective of the source process, the endpoint acts as a sink, receiving all new messages. The endpoint also proxies an Amazon Kinesis tream, which buffers and queues messages for processing. The Kinesis Stream is configured as a trigger for an ingestor Lambda, which takes messages from the Kinesis Stream and sends it to a state machine defined in AWS Step Functions. Step Functions pushes each message through a set of transformers defined in Lambda, handling failures and retry logic. The final step of the Step Function is an emitter Lambda which pushes the message to the Target Endpoint by providing it on an HTTP POST request.
-
 ### Source Endpoint to Target Process
 ![Source Endpoint to Target Process Diagram](https://s3.amazonaws.com/f12f301f-messaging-demo/diagrams/source-endpoint--target-process.png "Source Endpoint to Target Process Diagram")
 
 This route uses CloudWatch Events to trigger an ingestor Lamba periodically. The ingestor Lambda polls the Source Endpoint when triggered, sending each message to a state machine defined in AWS Step Functions. Step Functions pushes the message through a set of transformers defined in Lambnda, handling failures and retry logic. The final step of the Step Function is an emitter Lambda which pushes the message to an Amazon Kinesis Stream, which acts as a queue.
 
 Asynchronously, a Target Process can make periodic GET requests to an endpoint defined in API Gateway, asking for new messages. The endpoint proxies a dequeueing Lambda, which returns messages from the Kinesis Stream. The Target Process provides a timestamp as part of its request, and receives all messages that have accumulated since that timestamp.
+
+### Source Process to Target Endpoint
+![Source Process to Target Endpoint Diagram](https://s3.amazonaws.com/f12f301f-messaging-demo/diagrams/source-process--target-endpoint.png "Source Process to Target Endpoint Diagram")
+
+This route deploys an endpoint in API Gateway that a Source Process can hit with a POST request containing new messages. From the perspective of the source process, the endpoint acts as a sink, receiving all new messages. The endpoint also proxies an Amazon Kinesis tream, which buffers and queues messages for processing. The Kinesis Stream is configured as a trigger for an ingestor Lambda, which takes messages from the Kinesis Stream and sends it to a state machine defined in AWS Step Functions. Step Functions pushes each message through a set of transformers defined in Lambda, handling failures and retry logic. The final step of the Step Function is an emitter Lambda which pushes the message to the Target Endpoint by providing it on an HTTP POST request.
 
 ### Source Process to Target Process
 ![Source Process to Target Process Diagram](https://s3.amazonaws.com/f12f301f-messaging-demo/diagrams/source-process--target-process.png "Source Process to Target Process Diagram")
@@ -234,5 +262,6 @@ Deploy the route using the following steps:
   1. Deploy a route between the source and the target: [![Deploy to AWS](https://s3.amazonaws.com/f12f301f-messaging-demo/misc/deploy_to_aws.png "Deploy to AWS")](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=messaging-demo-ecs-cluster&templateURL=https://s3.amazonaws.com/f12f301f-messaging-demo/templates/source-process--target-process.yaml)
   2. Deploy a Source Process: [![Deploy to AWS](https://s3.amazonaws.com/f12f301f-messaging-demo/misc/deploy_to_aws.png "Deploy to AWS")](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=messaging-demo-ecs-cluster&templateURL=https://s3.amazonaws.com/f12f301f-messaging-demo/templates/source-process.yaml)
   3. Deploy a Target Endpoint: [![Deploy to AWS](https://s3.amazonaws.com/f12f301f-messaging-demo/misc/deploy_to_aws.png "Deploy to AWS")](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=messaging-demo-ecs-cluster&templateURL=https://s3.amazonaws.com/f12f301f-messaging-demo/templates/target-process.yaml)
+
 
 
