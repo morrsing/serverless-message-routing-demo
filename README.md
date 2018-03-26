@@ -79,141 +79,7 @@ This route deploys an endpoint in API Gateway that a Source Process can hit with
 Asynchronously, a Target Process can make periodic GET requests to an endpoint defined in API Gateway, asking for new messages. The endpoint proxies a dequeueing Lambda, which returns messages from the Kinesis Stream. The Target Process provides a timestamp as part of its request, and receives all messages that have accumulated since that timestamp.
 
 ## Packages
-All packages require Node.js 6.x or above. Lambdas are built on the [Lambda Base](https://github.com/morrissinger/lambda-base). Sources and Targets are containerized with Docker and can be deployed on Amazon EC2 Container Service.
-
-### Ingestors
-Ingestors provide the ability to pull messages from a source into a message route. Each ingestor can be built as a Lambda. Additionally, each ingestor has a pre-built Lambda Zip file available in a publicly accessible S3 bucket.
-
-#### Poll Ingestor
-Artifact   | Location
------------|----------
-Lambda Zip | [https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/poll-ingestor-lambda.zip](https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/dequeuer-lambda.zip)
-
-The Poll ingestor responds to a trigger by requesting new messages from a source via an HTTP request and passing each new message to a state machine execution in AWS Step Functions.
-
-The following environment variables must be supplied to the Lambda:
-  * `ENDPOINT`: An endpoint to poll for new messages.
-  * `METHOD`: An HTTP method with which to make requests of the endpoint provided in the `ENDPOINT` environment variable.
-  * `STATE_MACHINE_ARN`: The ARN of an AWS Step Functions state machine to execute with each new message.
-
-#### Sink Ingestor
-Artifact   | Location
------------|----------
-Lambda Zip | [https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/sink-ingestor-lambda.zip](https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/dequeuer-lambda.zip)
-
-A Sink ingestor retrieves a batch of messages pushed to the route by a source and passes each new message to a state machine in AWS Step Functions.
-
-The following environment variables must be supplied to the Lambda:
-  * `STATE_MACHINE_ARN`: The ARN of an AWS Step Functions state machine to execute with each new message.
-
-### Transformers
-Transformers provide the ability to change the shape of a message and its data in-flight. There is only one transformer provided in this demonstration. It can be built as a Lambda. Additionally, the transformer has a pre-built Lambda Zip file available in a publicly accessible S3 bucket.
-
-#### Transformer
-Artifact   | Location
------------|----------
-Lambda Zip | [https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/transformer-lambda.zip](https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/dequeuer-lambda.zip)
-
-This Transformer simply provides an additional attribute to each JSON message payload, the looks like the following:
-
-```json
-{
-  "additionalValue": true
-}
-```
-
-This is sufficient for demonstrating transformer functionality.
-
-There are no environment variables to be configured.
-
-### Emitters
-Emitters provide the ability to take a message that has completed a message route and provide it to a target. Each emitter can be built as a Lambda. Additionally, each emitter has a pre-built Lambda Zip file available in a publicly accessible S3 bucket.
-
-#### Queue Emitter / Dequeuer
-Artifact                 | Location
--------------------------|----------
-Queue Emitter Lambda Zip | [https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/dequeuer-lambda.zip](https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/queue-emitter-lambda.zip)
-Dequeuer Lambda Zip      | [https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/dequeuer-lambda.zip](https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/dequeuer-lambda.zip)
-
-The Queue Emitter is the final step in the state machine associated with a message route that must interface with a target that polls for new messages. It pushes new messages into a Kinesis Stream where they wait for dequeuing on requests from the target.
-
-The Dequeuer sits on the other side of the Kinesis Stream. It is an API Gateway Lambda Proxy that responds to HTTP requests from a target by retrieving new messages that have accumulated since the time provided in a provided timestamp.
-
-The following environment variables must be supplied to the Queue Emitter and Dequeuer Lambdas:
-  * `KINESIS_STREAM_ID`: The name of a Kinesis Stream into which to push messages and from which to retrieve messages.
-  * `KINESIS_SHARD_ID`: The ID of a Kinesis Stream Shard into which to push messages and from which to retrieve messages.
-
-#### Push Emitter
-Artifact   | Location
------------|----------
-Lambda Zip |  [https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/push-emitter-lambda.zip](https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/queue-emitter-lambda.zip)
-
-The Push Emitter is the final step in the state machine associated with a message route that must interface with a target that receives new messages through HTTP requests ot its endpoint.
-
-The following environment variables must be supplied to the Lambda:
-  * `ENDPOINT`: The URL of the endpoint on the Target that receives messages.
-
-### Simulators
-Simulators provide mocked sources for new messages and targets for message routing, allowing the functionality of routes to be demonstrated. A source can emit a message and the message can be observed making its way across the various components in a route via the specific services in the AWS Console and CloudWatch Logs.
-
-Each simulator is provided with a `Dockerfile` so it can be packaged as a Docker image. Additionally, each simulator has a pre-built Docker image, which can be used out-of-the-box.
-
-#### Source Endpoint
-Artifact     | Location
--------------|----------
-Docker Image | `196431283258.dkr.ecr.us-east-1.amazonaws.com/messaging-demo/source-endpoint`
-
-The Source Endpoint spins up a light-weight web server with an endpoint that can generate mock messages when requested. Messages are provided in a JSON array consisting of objects that match the following example:
-
-```json
-{
-  "id": 0,
-  "timestamp": 0123456789,
-  "message": "Equals sha1(timestamp)."
-}
-```
-
-The `id` attribute progresses sequentially with every message in every request. As such, it is possible to identify whether every message that came from the source ended up at the target.
-
-The following environment variables must be supplied to the container:
-  * `BATCH_SIZE`: The batch size of messages to emit when requests are made of the endpoint.
-  * `LOG_LEVEL`: One of [`error`, `warn`, `info`, `verbose`, `debug`, `silly`]. Recommended: `verbose`.
-
-#### Source Process
-Artifact     | Location
--------------|----------
-Docker Image | `196431283258.dkr.ecr.us-east-1.amazonaws.com/messaging-demo/source-process`
-
-The Source Process continually makes HTTP requests of an endpoint specified as an environment variable. Each request contains a JSON array consisting of objects that match the example message provided in the Source Endpoint, above.
-
-The following environment variables must be supplied to the container:
-  * `BATCH_SIZE`: The batch size of messages to emit when requests are made of the endpoint.
-  * `ENDPOINT`: The URL of an ingestor or emitter API to which to point the component.
-  * `FREQUENCY`: The number of milliseconds between requests.
-  * `LOG_LEVEL`: One of [`error`, `warn`, `info`, `verbose`, `debug`, `silly`]. Recommended: `verbose`.
-
-#### Target Endpoint
-Artifact     | Location
--------------|----------
-Docker Image |  `196431283258.dkr.ecr.us-east-1.amazonaws.com/messaging-demo/target-endpoint`
-
-The Target Endpoint spins up a light-weight web server with an endpoint that logs messages received on the POST body to the console (and to CloudWatch Logs).
-
-The following environment variables must be supplied to the container:
-  * `LOG_LEVEL`: One of [`error`, `warn`, `info`, `verbose`, `debug`, `silly`]. Recommended: `verbose`.
-
-#### Target Process
-Artifact     | Location
--------------|----------
-Docker Image | `196431283258.dkr.ecr.us-east-1.amazonaws.com/messaging-demo/target-process`
-
-The Target Process continually makes HTTP requests of an endpoint specified as an environment variable. Each requet contains a `timestamp` query parameter. The expectation is that the endpoint will respond with all messages that have accumulated since the time provided in the `timestamp`.
-
-The following environment variables must be supplied to the container:
-  * `ENDPOINT`: The URL of an emitter API to which to point the component.
-  * `FREQUENCY`:The number of milliseconds between requests.
-  * `LOG_LEVEL`: One of [`error`, `warn`, `info`, `verbose`, `debug`, `silly`]. Recommended: `verbose`.
-  * `METHOD`: The method for making requests against an emitter API.
+For a complete list of packages in this repo, see the [Packages Documentation](docs/packages.md).
 
 ## Templates
 
@@ -255,6 +121,11 @@ You can tail the logs for the source and target to see successful evidence of me
 
 N.B.: Endpoint simulators must be deployed *before* the routes that use them are deployed. This is because routes that interface with endpoint simulators must be configured with their respective endpoints at deploy-time. Process simulators must be deployed *after* the routes that use them are deployed. This is because they must be configured with their respective endpoints at deploy-time. These are limitations of this demo. These limitations are inherent to the demo and are not inherent to serverless message routing systems.
 
+Once the Fargate cluster is deployed, you can deploy four different types of routes, as follows:
+  1. Source Endpoint to Target Endpoint [![Tutorial](https://s3.amazonaws.com/f12f301f-messaging-demo/misc/tutorial.png "Tutorial")](docs/source-endpoint--target-endpoint.md)
+  2. Source Process to Target Endpoint [![Tutorial](https://s3.amazonaws.com/f12f301f-messaging-demo/misc/tutorial.png "Tutorial")](docs/source-endpoint--target-process.md)
+  3. Source Endpoint to Target Process [![Tutorial](https://s3.amazonaws.com/f12f301f-messaging-demo/misc/tutorial.png "Tutorial")](docs/source-process--target-endpoint.md)
+  4. Source Process to Target Process [![Tutorial](https://s3.amazonaws.com/f12f301f-messaging-demo/misc/tutorial.png "Tutorial")](docs/source-process--target-process.md)
 
 
 
@@ -263,44 +134,6 @@ N.B.: Endpoint simulators must be deployed *before* the routes that use them are
 
 
 
-### Deploying a Source Endpoint-to-Target Endpoint Route with Simulators
-Deploy the route using the following steps:
-
-  1. Deploy a Source Endpoint: [![Deploy to AWS](https://s3.amazonaws.com/f12f301f-messaging-demo/misc/deploy_to_aws.png "Deploy to AWS")](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=messaging-demo-ecs-cluster&templateURL=https://s3.amazonaws.com/f12f301f-messaging-demo/templates/source-endpoint.yaml)
-  2. Deploy a Target Endpoint: [![Deploy to AWS](https://s3.amazonaws.com/f12f301f-messaging-demo/misc/deploy_to_aws.png "Deploy to AWS")](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=messaging-demo-ecs-cluster&templateURL=https://s3.amazonaws.com/f12f301f-messaging-demo/templates/target-endpoint.yaml)
-  3. Deploy a route between the source and the target: [![Deploy to AWS](https://s3.amazonaws.com/f12f301f-messaging-demo/misc/deploy_to_aws.png "Deploy to AWS")](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=messaging-demo-ecs-cluster&templateURL=https://s3.amazonaws.com/f12f301f-messaging-demo/templates/source-endpoint--target-endpoint.yaml)
-
-#### Source Endpoint Template Parameters
-The Source Endpoint template requires several parameters. The following are required:
-  * **Stack name:** Provide a unique name for this CloudFormation Stack. The Stack Name is used to generate names for various aspects of the task, service, security groups, and other resources, so you should ensure that the Stack Name a unique identifier among your deployed Stacks, as well as other resources in your region.
-  * **BatchSize:** How many messages to send for each request of the endpoint. Setting this number small will help you to trace messages as they move across a route.
-  * **EcsClusterArn:** The ARN of the Fargate cluster you created previously. If you used the template provided above, the ARN is available as an output of the CloudFormation stack.
-  * **VpcId:** The VPC within which the Fargate cluster runs. If you created a Fargate cluster using the above template, the VPC ID is an output.
-  * **SubnetIds:** A comma separated list of subnets within which the Fargate cluster runs. If you created a Fargate cluster using the above template, the subnet IDs are available as outputs.
-  * **LogLevel:** A log level for output from the source. By default, `verbose` is selected and is recommended.
-
-Additionally, one of the following two parameters must be provided:
-  * **ExecutionRoleArn:** Provide the ARN of an IAM Role that contains the `AmazonECSTaskExecutionRolePolicy` or equivalent. This is optional; CloudFormation can create the Role on your behalf if you leave this blank and specify `ExecutionRoleName` instead.
-  * **ExecutionRoleName:** The name of a new IAM Role that will contain the `AmazonECSTaskExecutionRolePolicy` IAM Policy. This is optional; CloudFormation can use an existing IAM Role if you provide it in the `ExecutionRoleArn` parameter.
-
-#### Target Endpoint Template Parameters
-The Target Endpoint template requires several parameters. The following are required:
-  * **Stack name:** Provide a unique name for this CloudFormation Stack. The Stack Name is used to generate names for various aspects of the task, service, security groups, and other resources, so you should ensure that the Stack Name a unique identifier among your deployed Stacks, as well as other resources in your region.
-  * **EcsClusterArn:** The ARN of the Fargate cluster you created previously. If you used the template provided above, the ARN is available as an output of the CloudFormation stack.
-  * **VpcId:** The VPC within which the Fargate cluster runs. If you created a Fargate cluster using the above template, the VPC ID is an output.
-  * **SubnetIds:** A comma separated list of subnets within which the Fargate cluster runs. If you created a Fargate cluster using the above template, the subnet IDs are available as outputs.
-  * **LogLevel:** A log level for output from the source. By default, `verbose` is selected and is recommended.
-
-Additionally, one of the following two parameters must be provided:
-  * **ExecutionRoleArn:** Provide the ARN of an IAM Role that contains the `AmazonECSTaskExecutionRolePolicy` or equivalent. This is optional; CloudFormation can create the Role on your behalf if you leave this blank and specify `ExecutionRoleName` instead.
-  * **ExecutionRoleName:** The name of a new IAM Role that will contain the `AmazonECSTaskExecutionRolePolicy` IAM Policy. This is optional; CloudFormation can use an existing IAM Role if you provide it in the `ExecutionRoleArn` parameter.
-
-#### Route Template Parameters
-The Source Endpoint-to-Target Endpoint route requires the following parameters:
-  * **Stack name:** Provide a unique name for this CloudFormation Stack. The Stack Name is used to generate names for various aspects of the API Gateway and other resources, so you should ensure that the Stack Name a unique identifier among your deployed Stacks, as well as other resources in your region.
-  * **SouceEndpoint:** The source endpoint URL, which is an output of the Souce Endpoint template. This is the URL from which messages are requested.
-  * **SourceRequestMethod:** The HTTP method for requesting messages from the `SourceEndpoint`, which is an output of the Source Endpoint template.
-  * **TargetEndpoint:** The target endpoint URL, which is an output of the Target Endpoint template. This is the URL where routed messages are POSTed.
 
 
 
@@ -308,129 +141,10 @@ The Source Endpoint-to-Target Endpoint route requires the following parameters:
 
 
 
-### Deploying a Source-Endpoint-to-Target-Process Route with Simulators
-
-  1. Deploy a Source Endpoint: [![Deploy to AWS](https://s3.amazonaws.com/f12f301f-messaging-demo/misc/deploy_to_aws.png "Deploy to AWS")](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=messaging-demo-ecs-cluster&templateURL=https://s3.amazonaws.com/f12f301f-messaging-demo/templates/source-endpoint.yaml)
-  2. Deploy a route between the source and the target: [![Deploy to AWS](https://s3.amazonaws.com/f12f301f-messaging-demo/misc/deploy_to_aws.png "Deploy to AWS")](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=messaging-demo-ecs-cluster&templateURL=https://s3.amazonaws.com/f12f301f-messaging-demo/templates/source-endpoint--target-process.yaml)
-  3. Deploy a Target Process: [![Deploy to AWS](https://s3.amazonaws.com/f12f301f-messaging-demo/misc/deploy_to_aws.png "Deploy to AWS")](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=messaging-demo-ecs-cluster&templateURL=https://s3.amazonaws.com/f12f301f-messaging-demo/templates/target-process.yaml)
-
-#### Source Endpoint Template Parameters
-The Source Endpoint template requires several parameters. The following are required:
-  * **Stack name:** Provide a unique name for this CloudFormation Stack. The Stack Name is used to generate names for various aspects of the task, service, security groups, and other resources, so you should ensure that the Stack Name a unique identifier among your deployed Stacks, as well as other resources in your region.
-  * **BatchSize:** How many messages to send for each request of the endpoint. Setting this number small will help you to trace messages as they move across a route.
-  * **EcsClusterArn:** The ARN of the Fargate cluster you created previously. If you used the template provided above, the ARN is available as an output of the CloudFormation stack.
-  * **VpcId:** The VPC within which the Fargate cluster runs. If you created a Fargate cluster using the above template, the VPC ID is an output.
-  * **SubnetIds:** A comma separated list of subnets within which the Fargate cluster runs. If you created a Fargate cluster using the above template, the subnet IDs are available as outputs.
-  * **LogLevel:** A log level for output from the source. By default, `verbose` is selected and is recommended.
-
-Additionally, one of the following two parameters must be provided:
-  * **ExecutionRoleArn:** Provide the ARN of an IAM Role that contains the `AmazonECSTaskExecutionRolePolicy` or equivalent. This is optional; CloudFormation can create the Role on your behalf if you leave this blank and specify `ExecutionRoleName` instead.
-  * **ExecutionRoleName:** The name of a new IAM Role that will contain the `AmazonECSTaskExecutionRolePolicy` IAM Policy. This is optional; CloudFormation can use an existing IAM Role if you provide it in the `ExecutionRoleArn` parameter.
-
-#### Target Process Template Parameters
-The Target Process template requires several parameters. The following are required:
-  * **Stack name:** Provide a unique name for this CloudFormation Stack. The Stack Name is used to generate names for various aspects of the task, service, security groups, and other resources, so you should ensure that the Stack Name a unique identifier among your deployed Stacks, as well as other resources in your region.
-  * **EcsClusterArn:** The ARN of the Fargate cluster you created previously. If you used the template provided above, the ARN is available as an output of the CloudFormation stack.
-  * **VpcId:** The VPC within which the Fargate cluster runs. If you created a Fargate cluster using the above template, the VPC ID is an output.
-  * **SubnetIds:** A comma separated list of subnets within which the Fargate cluster runs. If you created a Fargate cluster using the above template, the subnet IDs are available as outputs.
-  * **LogLevel:** A log level for output from the target. By default, `verbose` is selected and is recommended.
-  * **Frequency:** The number of milliseconds between requests. The target process will poll for completed messages at this rate.
-  * **PointedAt:** The URL for the target process to request for completed messages. This will be an output of any of the templates that routes messages to a target process.
-  * **RequestMethod:** The HTTP method for making requests for compoleted messages. This will be an output of any of the tempaltes that routes messages to a target process.
-
-Additionally, one of the following two parameters must be provided:
-  * **ExecutionRoleArn:** Provide the ARN of an IAM Role that contains the `AmazonECSTaskExecutionRolePolicy` or equivalent. This is optional; CloudFormation can create the Role on your behalf if you leave this blank and specify `ExecutionRoleName` instead.
-  * **ExecutionRoleName:** The name of a new IAM Role that will contain the `AmazonECSTaskExecutionRolePolicy` IAM Policy. This is optional; CloudFormation can use an existing IAM Role if you provide it in the `ExecutionRoleArn` parameter.
-
-#### Route Template Parameters
-The Source Endpoint-to-Target Process route requires the following parameters:
-  * **Stack name:** Provide a unique name for this CloudFormation Stack. The Stack Name is used to generate names for various aspects of the API Gateway and other resources, so you should ensure that the Stack Name a unique identifier among your deployed Stacks, as well as other resources in your region.
-  * **SouceEndpoint:** The source endpoint URL, which is an output of the Souce Endpoint template. This is the URL from which messages are requested.
-  * **SourceRequestMethod:** The HTTP method for requesting messages from the `SourceEndpoint`, which is an output of the Source Endpoint template.
 
 
 
 
 
 
-### Deploying a Source Process-to-Target-Endpoint Route with Simulators
 
-  1. Deploy a Target Endpoint: [![Deploy to AWS](https://s3.amazonaws.com/f12f301f-messaging-demo/misc/deploy_to_aws.png "Deploy to AWS")](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=messaging-demo-ecs-cluster&templateURL=https://s3.amazonaws.com/f12f301f-messaging-demo/templates/target-endpoint.yaml)
-  2. Deploy a route between the source and the target: [![Deploy to AWS](https://s3.amazonaws.com/f12f301f-messaging-demo/misc/deploy_to_aws.png "Deploy to AWS")](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=messaging-demo-ecs-cluster&templateURL=https://s3.amazonaws.com/f12f301f-messaging-demo/templates/source-process--target-endpoint.yaml)
-  3. Deploy a Source Process: [![Deploy to AWS](https://s3.amazonaws.com/f12f301f-messaging-demo/misc/deploy_to_aws.png "Deploy to AWS")](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=messaging-demo-ecs-cluster&templateURL=https://s3.amazonaws.com/f12f301f-messaging-demo/templates/source-process.yaml)
-
-#### Source Process Template Parameters
-The Source Process template requires several parameters. The following are required:
-  * **Stack name:** Provide a unique name for this CloudFormation Stack. The Stack Name is used to generate names for various aspects of the task, service, security groups, and other resources, so you should ensure that the Stack Name a unique identifier among your deployed Stacks, as well as other resources in your region.
-  * **BatchSize:** How many messages to send for each request of the endpoint. Setting this number small will help you to trace messages as they move across a route.
-  * **EcsClusterArn:** The ARN of the Fargate cluster you created previously. If you used the template provided above, the ARN is available as an output of the CloudFormation stack.
-  * **VpcId:** The VPC within which the Fargate cluster runs. If you created a Fargate cluster using the above template, the VPC ID is an output.
-  * **SubnetIds:** A comma separated list of subnets within which the Fargate cluster runs. If you created a Fargate cluster using the above template, the subnet IDs are available as outputs.
-  * **LogLevel:** A log level for output from the source. By default, `verbose` is selected and is recommended.
-  * **Frequency:** The number of milliseconds between requests. The sourcex process will send new messages at this rate.
-  * **PointedAt:** The URL for the sourec process to send new messages. This will be an output of any of the templates that routes messages from a source process.
-
-Additionally, one of the following two parameters must be provided:
-  * **ExecutionRoleArn:** Provide the ARN of an IAM Role that contains the `AmazonECSTaskExecutionRolePolicy` or equivalent. This is optional; CloudFormation can create the Role on your behalf if you leave this blank and specify `ExecutionRoleName` instead.
-  * **ExecutionRoleName:** The name of a new IAM Role that will contain the `AmazonECSTaskExecutionRolePolicy` IAM Policy. This is optional; CloudFormation can use an existing IAM Role if you provide it in the `ExecutionRoleArn` parameter.
-
-#### Target Endpoint Template Parameters
-The Target Endpoint template requires several parameters. The following are required:
-  * **Stack name:** Provide a unique name for this CloudFormation Stack. The Stack Name is used to generate names for various aspects of the task, service, security groups, and other resources, so you should ensure that the Stack Name a unique identifier among your deployed Stacks, as well as other resources in your region.
-  * **EcsClusterArn:** The ARN of the Fargate cluster you created previously. If you used the template provided above, the ARN is available as an output of the CloudFormation stack.
-  * **VpcId:** The VPC within which the Fargate cluster runs. If you created a Fargate cluster using the above template, the VPC ID is an output.
-  * **SubnetIds:** A comma separated list of subnets within which the Fargate cluster runs. If you created a Fargate cluster using the above template, the subnet IDs are available as outputs.
-  * **LogLevel:** A log level for output from the source. By default, `verbose` is selected and is recommended.
-
-Additionally, one of the following two parameters must be provided:
-  * **ExecutionRoleArn:** Provide the ARN of an IAM Role that contains the `AmazonECSTaskExecutionRolePolicy` or equivalent. This is optional; CloudFormation can create the Role on your behalf if you leave this blank and specify `ExecutionRoleName` instead.
-  * **ExecutionRoleName:** The name of a new IAM Role that will contain the `AmazonECSTaskExecutionRolePolicy` IAM Policy. This is optional; CloudFormation can use an existing IAM Role if you provide it in the `ExecutionRoleArn` parameter.
-
-#### Route Template Parameters
-The Source Process-to-Target Endpoint route requires the following parameters:
-  * **Stack name:** Provide a unique name for this CloudFormation Stack. The Stack Name is used to generate names for various aspects of the API Gateway and other resources, so you should ensure that the Stack Name a unique identifier among your deployed Stacks, as well as other resources in your region.
-  * **TargetEndpoint:** The target endpoint URL, which is an output of the Target Endpoint template. This is the URL where routed messages are POSTed.
-
-
-
-
-
-
-### Deploying a Source Process-to-Target-Process Route with Simulators
-
-  1. Deploy a route between the source and the target: [![Deploy to AWS](https://s3.amazonaws.com/f12f301f-messaging-demo/misc/deploy_to_aws.png "Deploy to AWS")](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=messaging-demo-ecs-cluster&templateURL=https://s3.amazonaws.com/f12f301f-messaging-demo/templates/source-process--target-process.yaml)
-  2. Deploy a Source Process: [![Deploy to AWS](https://s3.amazonaws.com/f12f301f-messaging-demo/misc/deploy_to_aws.png "Deploy to AWS")](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=messaging-demo-ecs-cluster&templateURL=https://s3.amazonaws.com/f12f301f-messaging-demo/templates/source-process.yaml)
-  3. Deploy a Target Endpoint: [![Deploy to AWS](https://s3.amazonaws.com/f12f301f-messaging-demo/misc/deploy_to_aws.png "Deploy to AWS")](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=messaging-demo-ecs-cluster&templateURL=https://s3.amazonaws.com/f12f301f-messaging-demo/templates/target-process.yaml)
-
-#### Source Process Template Parameters
-The Source Process template requires several parameters. The following are required:
-  * **Stack name:** Provide a unique name for this CloudFormation Stack. The Stack Name is used to generate names for various aspects of the task, service, security groups, and other resources, so you should ensure that the Stack Name a unique identifier among your deployed Stacks, as well as other resources in your region.
-  * **BatchSize:** How many messages to send for each request of the endpoint. Setting this number small will help you to trace messages as they move across a route.
-  * **EcsClusterArn:** The ARN of the Fargate cluster you created previously. If you used the template provided above, the ARN is available as an output of the CloudFormation stack.
-  * **VpcId:** The VPC within which the Fargate cluster runs. If you created a Fargate cluster using the above template, the VPC ID is an output.
-  * **SubnetIds:** A comma separated list of subnets within which the Fargate cluster runs. If you created a Fargate cluster using the above template, the subnet IDs are available as outputs.
-  * **LogLevel:** A log level for output from the source. By default, `verbose` is selected and is recommended.
-  * **Frequency:** The number of milliseconds between requests. The sourcex process will send new messages at this rate.
-  * **PointedAt:** The URL for the sourec process to send new messages. This will be an output of any of the templates that routes messages from a source process.
-
-Additionally, one of the following two parameters must be provided:
-  * **ExecutionRoleArn:** Provide the ARN of an IAM Role that contains the `AmazonECSTaskExecutionRolePolicy` or equivalent. This is optional; CloudFormation can create the Role on your behalf if you leave this blank and specify `ExecutionRoleName` instead.
-  * **ExecutionRoleName:** The name of a new IAM Role that will contain the `AmazonECSTaskExecutionRolePolicy` IAM Policy. This is optional; CloudFormation can use an existing IAM Role if you provide it in the `ExecutionRoleArn` parameter.
-
-#### Target Process Template Parameters
-The Target Endpoint template requires several parameters. The following are required:
-  * **Stack name:** Provide a unique name for this CloudFormation Stack. The Stack Name is used to generate names for various aspects of the task, service, security groups, and other resources, so you should ensure that the Stack Name a unique identifier among your deployed Stacks, as well as other resources in your region.
-  * **EcsClusterArn:** The ARN of the Fargate cluster you created previously. If you used the template provided above, the ARN is available as an output of the CloudFormation stack.
-  * **VpcId:** The VPC within which the Fargate cluster runs. If you created a Fargate cluster using the above template, the VPC ID is an output.
-  * **SubnetIds:** A comma separated list of subnets within which the Fargate cluster runs. If you created a Fargate cluster using the above template, the subnet IDs are available as outputs.
-  * **LogLevel:** A log level for output from the target. By default, `verbose` is selected and is recommended.
-  * **Frequency:** The number of milliseconds between requests. The target process will poll for completed messages at this rate.
-  * **PointedAt:** The URL for the target process to request for completed messages. This will be an output of any of the templates that routes messages to a target process.
-  * **RequestMethod:** The HTTP method for making requests for compoleted messages. This will be an output of any of the tempaltes that routes messages to a target process.
-
-Additionally, one of the following two parameters must be provided:
-  * **ExecutionRoleArn:** Provide the ARN of an IAM Role that contains the `AmazonECSTaskExecutionRolePolicy` or equivalent. This is optional; CloudFormation can create the Role on your behalf if you leave this blank and specify `ExecutionRoleName` instead.
-  * **ExecutionRoleName:** The name of a new IAM Role that will contain the `AmazonECSTaskExecutionRolePolicy` IAM Policy. This is optional; CloudFormation can use an existing IAM Role if you provide it in the `ExecutionRoleArn` parameter.
-
-#### Route Template Parameters
-  * **Stack name:** Provide a unique name for this CloudFormation Stack. The Stack Name is used to generate names for various aspects of the API Gateway and other resources, so you should ensure that the Stack Name a unique identifier among your deployed Stacks, as well as other resources in your region.
