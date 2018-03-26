@@ -4,12 +4,6 @@ Description: >
   Cluster and networking (optionally) to support the
   sources and targets of the messaging demo.
 Parameters:
-  EcsClusterName:
-    Type: String
-    Description: >
-      Specifies the ECS Cluster Name with which the resources would be
-      associated
-    Default: default
   VpcId:
     Type: String
     Description: >
@@ -40,24 +34,6 @@ Parameters:
     Type: String
     Description: Specifies the CIDR Block of Subnet 2
     Default: ''
-  SecurityIngressFromPort:
-    Type: Number
-    Description: >
-      Optional - Specifies the Start of Security Group port to open on
-      ECS instances - defaults to port 0
-    Default: '0'
-  SecurityIngressToPort:
-    Type: Number
-    Description: >
-      Optional - Specifies the End of Security Group port to open on ECS
-      instances - defaults to port 65535
-    Default: '65535'
-  SecurityIngressCidrIp:
-    Type: String
-    Description: >
-      Optional - Specifies the CIDR/IP range for Security Ports - defaults
-      to 0.0.0.0/0
-    Default: 0.0.0.0/0
   VpcAvailabilityZones:
     Type: CommaDelimitedList
     Description: >
@@ -77,7 +53,7 @@ Resources:
   EcsCluster:
     Type: AWS::ECS::Cluster
     Properties:
-      ClusterName: !Ref EcsClusterName
+      ClusterName: !Ref 'AWS::StackName'
   Vpc:
     Condition: CreateSubnet1
     Type: AWS::EC2::VPC
@@ -95,7 +71,7 @@ Resources:
       Tags:
         -
           Key: "Name"
-          Value: !Join [ "/", [ !Ref EcsClusterName , 'Public' ] ]
+          Value: !Join [ "/", [ !Ref 'AWS::StackName' , 'Public' ] ]
   PubSubnetAz2:
     Condition: CreateSubnet2
     Type: AWS::EC2::Subnet
@@ -106,7 +82,7 @@ Resources:
       Tags:
         -
           Key: "Name"
-          Value: !Join [ "/", [ !Ref EcsClusterName , 'Public' ] ]
+          Value: !Join [ "/", [ !Ref 'AWS::StackName' , 'Public' ] ]
 
   InternetGateway:
     Condition: CreateSubnet1
@@ -142,20 +118,10 @@ Resources:
     Properties:
       SubnetId: !Ref PubSubnetAz2
       RouteTableId: !Ref RouteViaIgw
-  EcsSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: ECS Allowed Ports
-      VpcId: !If [ CreateSubnet1, !Ref Vpc, !Ref VpcId ]
-      SecurityGroupIngress:
-        IpProtocol: tcp
-        FromPort: !Ref SecurityIngressFromPort
-        ToPort: !Ref SecurityIngressToPort
-        CidrIp: !Ref SecurityIngressCidrIp
 Outputs:
   EcsCluster:
     Description: The ARN of the ECS Cluster that was created.
-    Value: !Ref EcsCluster
+    Value: !GetAtt [ EcsCluster, 'Arn' ]
   VpcId:
     Description: The ID of the VPC either created or used.
     Value: !If [ CreateSubnet1, !Ref Vpc, !Ref VpcId ]
