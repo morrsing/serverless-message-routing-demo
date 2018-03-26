@@ -54,7 +54,7 @@ Asynchronously, a Target Process can make periodic GET requests to an endpoint d
 All packages require Node.js 6.x or above. Lambdas are built on the [Lambda Base](https://github.com/morrissinger/lambda-base). Sources and Targets are containerized with Docker and can be deployed on Amazon EC2 Container Service.
 
 ### Ingestors
-ingestors provide the ability to pull messages from a source into a message route. Each ingestor can be built as a Lambda. Additionally, each ingestor has a pre-built Lambda Zip file available in a publicly accessible S3 bucket.
+Ingestors provide the ability to pull messages from a source into a message route. Each ingestor can be built as a Lambda. Additionally, each ingestor has a pre-built Lambda Zip file available in a publicly accessible S3 bucket.
 
 #### Poll Ingestor
 Artifact   | Location
