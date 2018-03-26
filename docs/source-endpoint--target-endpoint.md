@@ -1,4 +1,6 @@
 # Deploying a Source Endpoint-to-Target Endpoint Route with Simulators
+![Source Endpoint to Target Endpoint Diagram](https://s3.amazonaws.com/f12f301f-messaging-demo/diagrams/source-endpoint--target-endpoint.png "Source Endpoint to Target Endpoint Diagram")
+
 Deploy the route using the following steps:
 
   1. Deploy a Source Endpoint: [![Deploy to AWS](https://s3.amazonaws.com/f12f301f-messaging-demo/misc/deploy_to_aws.png "Deploy to AWS")](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=messaging-demo-ecs-cluster&templateURL=https://s3.amazonaws.com/f12f301f-messaging-demo/templates/source-endpoint.yaml)

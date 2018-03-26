@@ -82,18 +82,7 @@ Asynchronously, a Target Process can make periodic GET requests to an endpoint d
 For a complete list of packages in this repo, see the [Packages Documentation](docs/packages.md).
 
 ## Templates
-
-Template Name | Template URL
---------------|------------
-Fargate Cluster|https://s3.amazonaws.com/f12f301f-messaging-demo/templates/fargate-cluster.yaml
-Source Endpoint|https://s3.amazonaws.com/f12f301f-messaging-demo/templates/source-endpoint.yaml
-Source Process|https://s3.amazonaws.com/f12f301f-messaging-demo/templates/source-process.yaml
-Target Endpoint|https://s3.amazonaws.com/f12f301f-messaging-demo/templates/target-endpoint.yaml
-Target Process|https://s3.amazonaws.com/f12f301f-messaging-demo/templates/target-process.yaml
-Source Endpoint to Target Endpoint Route|https://s3.amazonaws.com/f12f301f-messaging-demo/templates/source-endpoint--target-endpoint.yaml
-Source Endpoint to Target Process Route|https://s3.amazonaws.com/f12f301f-messaging-demo/templates/source-endpoint0target-process.yaml
-Source Process to Target Endpoint Route|https://s3.amazonaws.com/f12f301f-messaging-demo/templates/source-process--target-endpoint.yaml
-Source Process to Target Process Route|https://s3.amazonaws.com/f12f301f-messaging-demo/templates/source-process-target-process.yaml
+For a complete list of CloudFormation templates in this repo, see the [Templates Documentation](docs/templates.md).
 
 ## Deploying
 Simulators should be deployed on an EC2 Container Service cluster. Deploying on a Cluster using Fargate is the easiest and most cost effective way of doing so. At the time of this writing, Fargate is only available in `us-east-1`, so links only to deploying in this region are provided here.
