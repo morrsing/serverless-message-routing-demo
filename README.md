@@ -57,7 +57,9 @@ All packages require Node.js 6.x or above. Lambdas are built on the [Lambda Base
 ingestors provide the ability to pull messages from a source into a message route. Each ingestor can be built as a Lambda. Additionally, each ingestor has a pre-built Lambda Zip file available in a publicly accessible S3 bucket.
 
 #### Poll ingestor
-Lambda Zip: [https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/poll-ingestor-lambda.zip](https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/dequeuer-lambda.zip)
+Artifact   | Location
+-----------|----------
+Lambda Zip | [https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/poll-ingestor-lambda.zip](https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/dequeuer-lambda.zip)
 
 The Poll ingestor responds to a trigger by requesting new messages from a source via an HTTP request and passing each new message to a state machine execution in AWS Step Functions.
 
@@ -67,7 +69,9 @@ The following environment variables must be supplied to the Lambda:
   * `STATE_MACHINE_ARN`: The ARN of an AWS Step Functions state machine to execute with each new message.
 
 #### Sink ingestor
-Lambda Zip: [https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/sink-ingestor-lambda.zip](https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/dequeuer-lambda.zip)
+Artifact   | Location
+-----------|----------
+Lambda Zip | [https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/sink-ingestor-lambda.zip](https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/dequeuer-lambda.zip)
 
 A Sink ingestor retrieves a batch of messages pushed to the route by a source and passes each new message to a state machine in AWS Step Functions.
 
@@ -78,7 +82,9 @@ The following environment variables must be supplied to the Lambda:
 Transformers provide the ability to change the shape of a message and its data in-flight. There is only one transformer provided in this demonstration. It can be built as a Lambda. Additionally, the transformer has a pre-built Lambda Zip file available in a publicly accessible S3 bucket.
 
 #### Transformer
-Lambda Zip: [https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/transformer-lambda.zip](https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/dequeuer-lambda.zip)
+Artifact   | Location
+-----------|----------
+Lambda Zip | [https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/transformer-lambda.zip](https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/dequeuer-lambda.zip)
 
 This Transformer simply provides an additional attribute to each JSON message payload, the looks like the following:
 
@@ -96,8 +102,10 @@ There are no environment variables to be configured.
 Emitters provide the ability to take a message that has completed a message route and provide it to a target. Each emitter can be built as a Lambda. Additionally, each emitter has a pre-built Lambda Zip file available in a publicly accessible S3 bucket.
 
 #### Queue Emitter / Dequeuer
-Queue Emitter Lambda Zip: [https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/dequeuer-lambda.zip](https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/queue-emitter-lambda.zip)
-Dequeuer: [https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/dequeuer-lambda.zip](https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/dequeuer-lambda.zip)
+Artifact                 | Location
+-------------------------|----------
+Queue Emitter Lambda Zip | [https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/dequeuer-lambda.zip](https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/queue-emitter-lambda.zip)
+Dequeuer Lambda Zip      | [https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/dequeuer-lambda.zip](https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/dequeuer-lambda.zip)
 
 The Queue Emitter is the final step in the state machine associated with a message route that must interface with a target that polls for new messages. It pushes new messages into a Kinesis Stream where they wait for dequeuing on requests from the target.
 
@@ -108,7 +116,9 @@ The following environment variables must be supplied to the Queue Emitter and De
   * `KINESIS_SHARD_ID`: The ID of a Kinesis Stream Shard into which to push messages and from which to retrieve messages.
 
 #### Push Emitter
-Lambda Zip: [https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/push-emitter-lambda.zip](https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/queue-emitter-lambda.zip)
+Artifact   | Location
+-----------|----------
+Lambda Zip |  [https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/push-emitter-lambda.zip](https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/queue-emitter-lambda.zip)
 
 The Push Emitter is the final step in the state machine associated with a message route that must interface with a target that receives new messages through HTTP requests ot its endpoint.
 
@@ -121,7 +131,9 @@ Simulators provide mocked sources for new messages and targets for message routi
 Each simulator is provided with a `Dockerfile` so it can be packaged as a Docker image. Additionally, each simulator has a pre-built Docker image, which can be used out-of-the-box.
 
 #### Source Endpoint
-Docker Image: `196431283258.dkr.ecr.us-east-1.amazonaws.com/messaging-demo/source-endpoint`
+Artifact     | Location
+-------------|----------
+Docker Image | `196431283258.dkr.ecr.us-east-1.amazonaws.com/messaging-demo/source-endpoint`
 
 The Source Endpoint spins up a light-weight web server with an endpoint that can generate mock messages when requested. Messages are provided in a JSON array consisting of objects that match the following example:
 
@@ -140,7 +152,9 @@ The following environment variables must be supplied to the container:
   * `LOG_LEVEL`: One of [`error`, `warn`, `info`, `verbose`, `debug`, `silly`]. Recommended: `verbose`.
 
 #### Source Process
-Docker Image: `196431283258.dkr.ecr.us-east-1.amazonaws.com/messaging-demo/source-process`
+Artifact     | Location
+-------------|----------
+Docker Image | `196431283258.dkr.ecr.us-east-1.amazonaws.com/messaging-demo/source-process`
 
 The Source Process continually makes HTTP requests of an endpoint specified as an environment variable. Each request contains a JSON array consisting of objects that match the example message provided in the Source Endpoint, above.
 
@@ -151,7 +165,9 @@ The following environment variables must be supplied to the container:
   * `LOG_LEVEL`: One of [`error`, `warn`, `info`, `verbose`, `debug`, `silly`]. Recommended: `verbose`.
 
 #### Target Endpoint
-Docker Image: `196431283258.dkr.ecr.us-east-1.amazonaws.com/messaging-demo/target-endpoint`
+Artifact     | Location
+-------------|----------
+Docker Image |  `196431283258.dkr.ecr.us-east-1.amazonaws.com/messaging-demo/target-endpoint`
 
 The Target Endpoint spins up a light-weight web server with an endpoint that logs messages received on the POST body to the console (and to CloudWatch Logs).
 
@@ -159,7 +175,9 @@ The following environment variables must be supplied to the container:
   * `LOG_LEVEL`: One of [`error`, `warn`, `info`, `verbose`, `debug`, `silly`]. Recommended: `verbose`.
 
 #### Target Process
-Docker Image: `196431283258.dkr.ecr.us-east-1.amazonaws.com/messaging-demo/target-process`
+Artifact     | Location
+-------------|----------
+Docker Image | `196431283258.dkr.ecr.us-east-1.amazonaws.com/messaging-demo/target-process`
 
 The Target Process continually makes HTTP requests of an endpoint specified as an environment variable. Each requet contains a `timestamp` query parameter. The expectation is that the endpoint will respond with all messages that have accumulated since the time provided in the `timestamp`.
 
@@ -216,4 +234,5 @@ Deploy the route using the following steps:
   1. Deploy a route between the source and the target: [![Deploy to AWS](https://s3.amazonaws.com/f12f301f-messaging-demo/misc/deploy_to_aws.png "Deploy to AWS")](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=messaging-demo-ecs-cluster&templateURL=https://s3.amazonaws.com/f12f301f-messaging-demo/templates/source-process--target-process.yaml)
   2. Deploy a Source Process: [![Deploy to AWS](https://s3.amazonaws.com/f12f301f-messaging-demo/misc/deploy_to_aws.png "Deploy to AWS")](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=messaging-demo-ecs-cluster&templateURL=https://s3.amazonaws.com/f12f301f-messaging-demo/templates/source-process.yaml)
   3. Deploy a Target Endpoint: [![Deploy to AWS](https://s3.amazonaws.com/f12f301f-messaging-demo/misc/deploy_to_aws.png "Deploy to AWS")](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=messaging-demo-ecs-cluster&templateURL=https://s3.amazonaws.com/f12f301f-messaging-demo/templates/target-process.yaml)
+
 
