@@ -53,10 +53,10 @@ Asynchronously, a Target Process can make periodic GET requests to an endpoint d
 ## Packages
 All packages require Node.js 6.x or above. Lambdas are built on the [Lambda Base](https://github.com/morrissinger/lambda-base). Sources and Targets are containerized with Docker and can be deployed on Amazon EC2 Container Service.
 
-### ingestors
+### Ingestors
 ingestors provide the ability to pull messages from a source into a message route. Each ingestor can be built as a Lambda. Additionally, each ingestor has a pre-built Lambda Zip file available in a publicly accessible S3 bucket.
 
-#### Poll ingestor
+#### Poll Ingestor
 Artifact   | Location
 -----------|----------
 Lambda Zip | [https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/poll-ingestor-lambda.zip](https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/dequeuer-lambda.zip)
@@ -68,7 +68,7 @@ The following environment variables must be supplied to the Lambda:
   * `METHOD`: An HTTP method with which to make requests of the endpoint provided in the `ENDPOINT` environment variable.
   * `STATE_MACHINE_ARN`: The ARN of an AWS Step Functions state machine to execute with each new message.
 
-#### Sink ingestor
+#### Sink Ingestor
 Artifact   | Location
 -----------|----------
 Lambda Zip | [https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/sink-ingestor-lambda.zip](https://s3.amazonaws.com/f12f301f-messaging-demo/lambdas/dequeuer-lambda.zip)
