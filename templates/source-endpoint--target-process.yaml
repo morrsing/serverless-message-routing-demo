@@ -182,7 +182,7 @@ Resources:
             Principal:
               Service: 'states.amazonaws.com'
             Action: 'sts:AssumeRole'
-      RoleName: !Join ['', [ !Ref 'AWS::StackName', 'MessageRouteTaskExecutionRole' ] ]
+      RoleName: !Join ['', [ !Ref 'AWS::StackName', 'TaskExecutionRole' ] ]
       ManagedPolicyArns:
         - 'arn:aws:iam::aws:policy/service-role/AWSLambdaRole'
 
