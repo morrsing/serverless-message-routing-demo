@@ -60,7 +60,7 @@ Here, you can see a log associated with the Source Endpoint and Target Endpoint 
 
 ### Examine the Source Endpoint
 Tail the Source Endpoint log to see messages as they are sent into the route:
-```
+```sh
 cwtail -ef /ecs/messaging-demo-source-endpoint/Log
 ```
 
@@ -80,7 +80,7 @@ info:  id=9, timestamp=1522267924275, message=03cb3655f48df0ddb86c017ce8c4ea2250
 
 ### Examine the Poll Ingestor
 Tail the Poll Ingestor log to see messages as they enter the route:
-```
+```sh
 cwtail -ef /aws/lambda/messaging-demo-source-ep-target-ep-PollIngestor-1IHZ412NPIYDD
 ```
 
@@ -103,7 +103,7 @@ REPORT RequestId: 479b2a4d-32c4-11e8-87b4-0b8f3fffc583	Duration: 1601.46 ms	Bill
 
 ### Examine the Transformer
 Tail the Transformer log to see messages as they are transformed in the middle of the route:
-```
+```sh
 cwtail -ef /aws/lambda/messaging-demo-source-ep-target-ep-Transformer-YWT9LSCW1KUZ
 ```
 
@@ -115,7 +115,7 @@ REPORT RequestId: 490baa22-32c4-11e8-991d-71b7085f6747	Duration: 23.27 ms	Billed
 
 ### Examine the Push Emitter
 Tail the Push Emitter to see transformed messages as they are pushed out to the Target Endpoint and leave the route:
-```
+```sh
 cwtail -ef /aws/lambda/messaging-demo-source-ep-target-ep-PushEmitter-1VQRV7H1XK474
 ```
 
@@ -127,8 +127,10 @@ REPORT RequestId: 49705ed4-32c4-11e8-b126-118c53215adf	Duration: 544.56 ms	Bille
 
 ### Examine the Target Endpoint
 Tail the Target Endpoint log to see messages as they are received by the Target Endpoint:
-```
+```sh
 cwtail -ef /ecs/messaging-demo-target-endpoint/Log
+```
+```
 info: Running on port 3000.
 info:  id=4, timestamp=1522267924275, message=03cb3655f48df0ddb86c017ce8c4ea22506f7cb8, additionalValue=true
 info:  id=1, timestamp=1522267924274, message=e297d979262f8150d36e0c19c5296569c01b5170, additionalValue=true
@@ -147,13 +149,17 @@ You can also query AWS for the AWS Step Functions State Machine that managed the
 ```sh
 aws stepfunctions list-state-machines | jq .stateMachines[].stateMachineArn
 ```
+
 ```
 "arn:aws:states:us-east-1:XXXXXXXXXXXX:stateMachine:messaging-demo-source-ep-target-ep-StateMachine"
 ```
 
 Query the State Machine for a list of executions:
+```sh
+aws stepfunctions list-executions --state-machine-arn "arn:aws:states:us-east-1:XXXXXXXXX:stateMachine:messaging-demo-source-ep-target-ep-StateMachine"
 ```
-aws stepfunctions list-executions --state-machine-arn "arn:aws:states:us-east-1:196431283258:stateMachine:messaging-demo-source-ep-target-ep-StateMachine"
+
+```json
 {
     "executions": [
         {
@@ -167,4 +173,22 @@ aws stepfunctions list-executions --state-machine-arn "arn:aws:states:us-east-1:
     ]
 } 
 
+```
+
+Describe the execution to get the input and output:
+```sh
+aws stepfunctions describe-execution --execution-arn "arn:aws:states:us-east-1:196431283258:execution:messaging-demo-source-proc-target-ep-StateMachine:82f2564b-1096-40f6-8592-93b0410db193"
+```
+
+```json
+{
+    "status": "SUCCEEDED", 
+    "startDate": 1522278285.109, 
+    "name": "82f2564b-1096-40f6-8592-93b0410db193", 
+    "executionArn": "arn:aws:states:us-east-1:XXXXXXXXXXXX:execution:messaging-demo-source-ep-target-ep-StateMachine:6ec94ebf-bf38-40ce-baab-dee226c063da", 
+    "stateMachineArn": "arn:aws:states:us-east-1:XXXXXXXXXXXX:stateMachine:messaging-demo-source-proc-target-ep-StateMachine", 
+    "stopDate": 1522278285.324, 
+    "output": "\"SUCCESS\"", 
+    "input": "{\"message\":{\"id\":\"4591\",\"timestamp\":\"1522278284797\",\"message\":\"173baa22dd310ecb14764f5f06f455fb17ca92fe\"}}"
+}
 ```
