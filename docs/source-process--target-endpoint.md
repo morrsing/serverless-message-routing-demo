@@ -37,7 +37,6 @@ The Source Process-to-Target Endpoint route requires the following parameters:
   * **Stack name:** Provide a unique name for this CloudFormation Stack. The Stack Name is used to generate names for various aspects of the API Gateway and other resources, so you should ensure that the Stack Name a unique identifier among your deployed Stacks, as well as other resources in your region.
   * **TargetEndpoint:** The target endpoint URL, which is an output of the Target Endpoint template. This is the URL where routed messages are POSTed.
 
-
 ## Verify Message Routing
 You can use your favorite CloudWatch tool, or the CloudWatch Logs section in the AWS Management Console to tail the logs for the source and target components, as well as the Lambdas that are executed through the message route to see evidence of each message traversing the route. Here, the use of [cwtail](https://www.npmjs.com/package/cwtail) is demonstrated.
 
@@ -54,7 +53,7 @@ aws logs describe-log-groups | jq .logGroups[].logGroupName
 "/ecs/messaging-demo-target-endpoint/Log"
 ```
 
-Here, you can see a log associated with the Source Endpoint and Target Endpoint containers, as well as a log for each of the Lambdas: Poll Ingestor, Transformer, and Push Emitter.
+Here, you can see a log associated with the Source Process and Target Endpoint containers, as well as a log for each of the Lambdas: Poll Ingestor, Transformer, and Push Emitter.
 
 ### Examine the Source Process
 Tail the Source Process log to see messages as they are sent into the route:
