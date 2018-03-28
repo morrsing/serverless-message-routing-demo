@@ -95,8 +95,8 @@ N.B.: Endpoint simulators must be deployed *before* the routes that use them are
 
 Once the Fargate cluster is deployed, you can deploy four different types of routes, as follows:
   1. Source Endpoint to Target Endpoint [![Tutorial](https://s3.amazonaws.com/f12f301f-messaging-demo/misc/tutorial.png "Tutorial")](docs/source-endpoint--target-endpoint.md)
-  2. Source Process to Target Endpoint [![Tutorial](https://s3.amazonaws.com/f12f301f-messaging-demo/misc/tutorial.png "Tutorial")](docs/source-endpoint--target-process.md)
-  3. Source Endpoint to Target Process [![Tutorial](https://s3.amazonaws.com/f12f301f-messaging-demo/misc/tutorial.png "Tutorial")](docs/source-process--target-endpoint.md)
+  2. Source Endpoint to Target Process [![Tutorial](https://s3.amazonaws.com/f12f301f-messaging-demo/misc/tutorial.png "Tutorial")](docs/source-endpoint--target-process.md)
+  3. Source Process to Target Endpoint [![Tutorial](https://s3.amazonaws.com/f12f301f-messaging-demo/misc/tutorial.png "Tutorial")](docs/source-process--target-endpoint.md)
   4. Source Process to Target Process [![Tutorial](https://s3.amazonaws.com/f12f301f-messaging-demo/misc/tutorial.png "Tutorial")](docs/source-process--target-process.md)
 
 
