@@ -188,7 +188,7 @@ aws stepfunctions list-executions --state-machine-arn "arn:aws:states:us-east-1:
 
 Describe the execution to get the input and output:
 ```sh
-aws stepfunctions describe-execution --execution-arn "arn:aws:states:us-east-1:196431283258:execution:messaging-demo-source-proc-target-ep-StateMachine:82f2564b-1096-40f6-8592-93b0410db193"
+aws stepfunctions describe-execution --execution-arn "arn:aws:states:us-east-1:XXXXXXXXXXXX:execution:messaging-demo-source-proc-target-ep-StateMachine:82f2564b-1096-40f6-8592-93b0410db193"
 ```
 
 ```json
