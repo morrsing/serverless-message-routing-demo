@@ -58,6 +58,7 @@ aws logs describe-log-groups | jq .logGroups[].logGroupName
 
 Here, you can see a log associated with the Source Endpoint and Target Endpoint containers, as well as a log for each of the Lambdas: Poll Ingestor, Transformer, and Push Emitter.
 
+### Examine the Source Endpoint
 Tail the Source Endpoint log to see messages as they are sent into the route:
 ```
 cwtail -ef /ecs/messaging-demo-source-endpoint/Log
@@ -77,7 +78,8 @@ info:  id=8, timestamp=1522267924275, message=03cb3655f48df0ddb86c017ce8c4ea2250
 info:  id=9, timestamp=1522267924275, message=03cb3655f48df0ddb86c017ce8c4ea22506f7cb8
 ```
 
-Tail the Poll Ingester log to see messages as they enter the route:
+### Examine the Poll Ingestor
+Tail the Poll Ingestor log to see messages as they enter the route:
 ```
 cwtail -ef /aws/lambda/messaging-demo-source-ep-target-ep-PollIngestor-1IHZ412NPIYDD
 ```
@@ -99,6 +101,7 @@ END RequestId: 479b2a4d-32c4-11e8-87b4-0b8f3fffc583
 REPORT RequestId: 479b2a4d-32c4-11e8-87b4-0b8f3fffc583	Duration: 1601.46 ms	Billed Duration: 1700 ms 	Memory Size: 128 MB	Max Memory Used: 46 MB
 ```
 
+### Examine the Transformer
 Tail the Transformer log to see messages as they are transformed in the middle of the route:
 ```
 cwtail -ef /aws/lambda/messaging-demo-source-ep-target-ep-Transformer-YWT9LSCW1KUZ
@@ -110,6 +113,7 @@ END RequestId: 490baa22-32c4-11e8-991d-71b7085f6747
 REPORT RequestId: 490baa22-32c4-11e8-991d-71b7085f6747	Duration: 23.27 ms	Billed Duration: 100 ms 	Memory Size: 128 MB	Max Memory Used: 19 MB
 ```
 
+### Examine the Push Emitter
 Tail the Push Emitter to see transformed messages as they are pushed out to the Target Endpoint and leave the route:
 ```
 cwtail -ef /aws/lambda/messaging-demo-source-ep-target-ep-PushEmitter-1VQRV7H1XK474
@@ -121,6 +125,7 @@ END RequestId: 49705ed4-32c4-11e8-b126-118c53215adf
 REPORT RequestId: 49705ed4-32c4-11e8-b126-118c53215adf	Duration: 544.56 ms	Billed Duration: 600 ms 	Memory Size: 128 MB	Max Memory Used: 27 MB
 ```
 
+### Examine the Target Endpoint
 Tail the Target Endpoint log to see messages as they are received by the Target Endpoint:
 ```
 cwtail -ef /ecs/messaging-demo-target-endpoint/Log
@@ -137,6 +142,7 @@ info:  id=5, timestamp=1522267924275, message=03cb3655f48df0ddb86c017ce8c4ea2250
 info:  id=7, timestamp=1522267924275, message=03cb3655f48df0ddb86c017ce8c4ea22506f7cb8, additionalValue=true
 ```
 
+### Examine the State Machine
 You can also query AWS for the AWS Step Functions State Machine that managed the transformation and routing of each message. Start by locating the correct State Machine: 
 ```sh
 aws stepfunctions list-state-machines | jq .stateMachines[].stateMachineArn
