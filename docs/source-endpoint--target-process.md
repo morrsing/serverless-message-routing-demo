@@ -39,7 +39,6 @@ The Source Endpoint-to-Target Process route requires the following parameters:
   * **SouceEndpoint:** The source endpoint URL, which is an output of the Souce Endpoint template. This is the URL from which messages are requested.
   * **SourceRequestMethod:** The HTTP method for requesting messages from the `SourceEndpoint`, which is an output of the Source Endpoint template.
 
-
 ## Verify Message Routing
 You can use your favorite CloudWatch tool, or the CloudWatch Logs section in the AWS Management Console to tail the logs for the source and target components, as well as the Lambdas that are executed through the message route to see evidence of each message traversing the route. Here, the use of [cwtail](https://www.npmjs.com/package/cwtail) is demonstrated.
 
