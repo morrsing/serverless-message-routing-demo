@@ -31,8 +31,8 @@ and target components, as follows:
 ## Routes
 The project demonstrates four HTTP-based routes, as follows:
   1. Source Endpoint to Target Endpoint
-  2. Source Process to Target Endpoint
-  3. Source Endpoint to Target Process
+  2. Source Endpoint to Target Process
+  3. Source Process to Target Endpoint
   4. Source Process to Target Process
 
 Each is detailed below.
@@ -45,7 +45,7 @@ This route uses CloudWatch Events to trigger an ingestor Lambda periodically. Th
 ### Source Endpoint to Target Process
 ![Source Endpoint to Target Process Diagram](https://s3.amazonaws.com/f12f301f-messaging-demo/diagrams/source-endpoint--target-process.png "Source Endpoint to Target Process Diagram")
 
-This route uses CloudWatch Events to trigger an ingestor Lamba periodically. The ingestor Lambda polls the Source Endpoint when triggered, sending each message to a state machine defined in AWS Step Functions. Step Functions pushes the message through a set of transformers defined in Lambnda, handling failures and retry logic. The final step of the Step Function is an emitter Lambda which pushes the message to an Amazon Kinesis Stream, which acts as a queue.
+This route uses CloudWatch Events to trigger an ingestor Lamba periodically. The ingestor Lambda polls the Source Endpoint when triggered, sending each message to a state machine defined in AWS Step Functions. Step Functions pushes the message through a set of transformers defined in Lambda, handling failures and retry logic. The final step of the Step Function is an emitter Lambda which pushes the message to an Amazon Kinesis Stream, which acts as a queue.
 
 Asynchronously, a Target Process can make periodic GET requests to an endpoint defined in API Gateway, asking for new messages. The endpoint proxies a dequeueing Lambda, which returns messages from the Kinesis Stream. The Target Process provides a timestamp as part of its request, and receives all messages that have accumulated since that timestamp.
 
