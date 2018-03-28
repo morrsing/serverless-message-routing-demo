@@ -64,6 +64,6 @@ typings/
 lib/
 
 # Package
-lambda.zip
+**/*.zip
 
 .idea
