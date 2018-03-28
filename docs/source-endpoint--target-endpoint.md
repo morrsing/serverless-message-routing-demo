@@ -140,6 +140,8 @@ info:  id=7, timestamp=1522267924275, message=03cb3655f48df0ddb86c017ce8c4ea2250
 You can also query AWS for the AWS Step Functions State Machine that managed the transformation and routing of each message. Start by locating the correct State Machine: 
 ```sh
 aws stepfunctions list-state-machines | jq .stateMachines[].stateMachineArn
+```
+```
 "arn:aws:states:us-east-1:XXXXXXXXXXXX:stateMachine:messaging-demo-source-ep-target-ep-StateMachine"
 ```
 
