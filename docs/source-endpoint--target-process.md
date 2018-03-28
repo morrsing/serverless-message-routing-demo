@@ -38,3 +38,145 @@ The Source Endpoint-to-Target Process route requires the following parameters:
   * **Stack name:** Provide a unique name for this CloudFormation Stack. The Stack Name is used to generate names for various aspects of the API Gateway and other resources, so you should ensure that the Stack Name a unique identifier among your deployed Stacks, as well as other resources in your region.
   * **SouceEndpoint:** The source endpoint URL, which is an output of the Souce Endpoint template. This is the URL from which messages are requested.
   * **SourceRequestMethod:** The HTTP method for requesting messages from the `SourceEndpoint`, which is an output of the Source Endpoint template.
+
+
+## Verify Message Routing
+You can use your favorite CloudWatch tool, or the CloudWatch Logs section in the AWS Management Console to tail the logs for the source and target components, as well as the Lambdas that are executed through the message route to see evidence of each message traversing the route. Here, the use of [cwtail](https://www.npmjs.com/package/cwtail) is demonstrated.
+
+List the logs that are associated with this demo:
+```sh
+aws logs describe-log-groups | jq .logGroups[].logGroupName
+```
+
+```
+"/aws/lambda/messaging-demo-source-ep-target-proc-Dequeuer-UX54ASD53KWQ"
+"/aws/lambda/messaging-demo-source-ep-target-proc-PollIngestor-1G5LPMAS3VY2J"
+"/aws/lambda/messaging-demo-source-ep-target-proc-QueueEmitter-ZUNXB9W8KMQZ"
+"/aws/lambda/messaging-demo-source-ep-target-proc-Transformer-18EVCYTLNHLJT"
+"/ecs/messaging-demo-source-endpoint/Log"
+"/ecs/messaging-demo-target-process/Log"
+```
+
+Here, you can see a log associated with the Source Endpoint and Target Process containers, as well as a log for each of the Lambdas: Poll Ingestor, Transformer, Queue Emitter, and Dequeuer.
+
+### Examine the Source Endpoint
+Tail the Source Endpoint log to see messages as they are sent into the route:
+```
+cwtail -ef /ecs/messaging-demo-source-endpoint/Log
+```
+
+```
+info: Running on port 3000. Batch size: 10
+info:  id=0, timestamp=1522267924273, message=4772dd1437458e3603fdf57fc28c4b6180b1bccf
+info:  id=1, timestamp=1522267924274, message=e297d979262f8150d36e0c19c5296569c01b5170
+info:  id=2, timestamp=1522267924274, message=e297d979262f8150d36e0c19c5296569c01b5170
+info:  id=3, timestamp=1522267924274, message=e297d979262f8150d36e0c19c5296569c01b5170
+info:  id=4, timestamp=1522267924275, message=03cb3655f48df0ddb86c017ce8c4ea22506f7cb8
+info:  id=5, timestamp=1522267924275, message=03cb3655f48df0ddb86c017ce8c4ea22506f7cb8
+info:  id=6, timestamp=1522267924275, message=03cb3655f48df0ddb86c017ce8c4ea22506f7cb8
+info:  id=7, timestamp=1522267924275, message=03cb3655f48df0ddb86c017ce8c4ea22506f7cb8
+info:  id=8, timestamp=1522267924275, message=03cb3655f48df0ddb86c017ce8c4ea22506f7cb8
+info:  id=9, timestamp=1522267924275, message=03cb3655f48df0ddb86c017ce8c4ea22506f7cb8
+```
+
+### Examine the Poll Ingestor
+Tail the Poll Ingestor log to see messages as they enter the route:
+```
+cwtail -ef /aws/lambda/messaging-demo-source-ep-target-proc-PollIngestor-1G5LPMAS3VY2J
+```
+
+```
+START RequestId: 479b2a4d-32c4-11e8-87b4-0b8f3fffc583 Version: $LATEST
+info: Poll ingester invoked.
+info:  id=0, timestamp=1522267924273, message=4772dd1437458e3603fdf57fc28c4b6180b1bccf
+info:  id=1, timestamp=1522267924274, message=e297d979262f8150d36e0c19c5296569c01b5170
+info:  id=2, timestamp=1522267924274, message=e297d979262f8150d36e0c19c5296569c01b5170
+info:  id=3, timestamp=1522267924274, message=e297d979262f8150d36e0c19c5296569c01b5170
+info:  id=4, timestamp=1522267924275, message=03cb3655f48df0ddb86c017ce8c4ea22506f7cb8
+info:  id=5, timestamp=1522267924275, message=03cb3655f48df0ddb86c017ce8c4ea22506f7cb8
+info:  id=6, timestamp=1522267924275, message=03cb3655f48df0ddb86c017ce8c4ea22506f7cb8
+info:  id=7, timestamp=1522267924275, message=03cb3655f48df0ddb86c017ce8c4ea22506f7cb8
+info:  id=8, timestamp=1522267924275, message=03cb3655f48df0ddb86c017ce8c4ea22506f7cb8
+info:  id=9, timestamp=1522267924275, message=03cb3655f48df0ddb86c017ce8c4ea22506f7cb8
+END RequestId: 479b2a4d-32c4-11e8-87b4-0b8f3fffc583
+REPORT RequestId: 479b2a4d-32c4-11e8-87b4-0b8f3fffc583	Duration: 1601.46 ms	Billed Duration: 1700 ms 	Memory Size: 128 MB	Max Memory Used: 46 MB
+```
+
+### Examine the Transformer
+Tail the Transformer log to see messages as they are transformed in the middle of the route:
+```
+cwtail -ef /aws/lambda/messaging-demo-source-ep-target-proc-Transformer-18EVCYTLNHLJT
+```
+
+```
+START RequestId: 490baa22-32c4-11e8-991d-71b7085f6747 Version: $LATEST
+END RequestId: 490baa22-32c4-11e8-991d-71b7085f6747
+REPORT RequestId: 490baa22-32c4-11e8-991d-71b7085f6747	Duration: 23.27 ms	Billed Duration: 100 ms 	Memory Size: 128 MB	Max Memory Used: 19 MB
+```
+
+### Examine the Queue Emitter
+Tail the Queue Emitter to see transformed messages as they are pushed out to the Target Endpoint and leave the route:
+```
+cwtail -ef /aws/lambda/messaging-demo-source-ep-target-proc-QueueEmitter-ZUNXB9W8KMQZ
+```
+
+```
+START RequestId: 16ee3da9-32c8-11e8-bfb8-274723028997 Version: $LATEST
+END RequestId: 16ee3da9-32c8-11e8-bfb8-274723028997
+REPORT RequestId: 16ee3da9-32c8-11e8-bfb8-274723028997	Duration: 2487.47 ms	Billed Duration: 2500 ms 	Memory Size: 128 MB	Max Memory Used: 39 MB```
+```
+### Examine the Dequeuer
+Tail the Dequeuer to see transformed messages as they are pushed out to the Target Endpoint and leave the route:
+```
+cwtail -ef /aws/lambda/messaging-demo-source-ep-target-proc-Dequeuer-UX54ASD53KWQ
+```
+
+```
+START RequestId: 795f597a-32c8-11e8-8050-6b53397ceb21 Version: $LATEST
+END RequestId: 795f597a-32c8-11e8-8050-6b53397ceb21
+REPORT RequestId: 795f597a-32c8-11e8-8050-6b53397ceb21	Duration: 1328.23 ms	Billed Duration: 1400 ms 	Memory Size: 128 MB	Max Memory Used: 38 MB
+```
+
+### Examine the Target Process
+Tail the Target Process log to see messages as they are received by the Target Endpoint:
+```
+cwtail -ef /ecs/messaging-demo-target-endpoint/Log
+info: Running on port 3000.
+info:  id=4, timestamp=1522267924275, message=03cb3655f48df0ddb86c017ce8c4ea22506f7cb8, additionalValue=true
+info:  id=1, timestamp=1522267924274, message=e297d979262f8150d36e0c19c5296569c01b5170, additionalValue=true
+info:  id=6, timestamp=1522267924275, message=03cb3655f48df0ddb86c017ce8c4ea22506f7cb8, additionalValue=true
+info:  id=9, timestamp=1522267924275, message=03cb3655f48df0ddb86c017ce8c4ea22506f7cb8, additionalValue=true
+info:  id=3, timestamp=1522267924274, message=e297d979262f8150d36e0c19c5296569c01b5170, additionalValue=true
+info:  id=8, timestamp=1522267924275, message=03cb3655f48df0ddb86c017ce8c4ea22506f7cb8, additionalValue=true
+info:  id=0, timestamp=1522267924273, message=4772dd1437458e3603fdf57fc28c4b6180b1bccf, additionalValue=true
+info:  id=2, timestamp=1522267924274, message=e297d979262f8150d36e0c19c5296569c01b5170, additionalValue=true
+info:  id=5, timestamp=1522267924275, message=03cb3655f48df0ddb86c017ce8c4ea22506f7cb8, additionalValue=true
+info:  id=7, timestamp=1522267924275, message=03cb3655f48df0ddb86c017ce8c4ea22506f7cb8, additionalValue=true
+```
+
+### Examine the State Machine
+You can also query AWS for the AWS Step Functions State Machine that managed the transformation and routing of each message. Start by locating the correct State Machine: 
+```sh
+aws stepfunctions list-state-machines | jq .stateMachines[].stateMachineArn
+```
+```
+"arn:aws:states:us-east-1:XXXXXXXXXXXX:stateMachine:messaging-demo-source-ep-target-ep-StateMachine"
+```
+
+Query the State Machine for a list of executions:
+```
+aws stepfunctions list-executions --state-machine-arn "arn:aws:states:us-east-1:196431283258:stateMachine:messaging-demo-source-ep-target-ep-StateMachine"
+{
+    "executions": [
+        {
+            "status": "SUCCEEDED", 
+            "startDate": 1522268224.44, 
+            "name": "6ec94ebf-bf38-40ce-baab-dee226c063da", 
+            "executionArn": "arn:aws:states:us-east-1:XXXXXXXXXXXX:execution:messaging-demo-source-ep-target-ep-StateMachine:6ec94ebf-bf38-40ce-baab-dee226c063da", 
+            "stateMachineArn": "arn:aws:states:us-east-1:XXXXXXXXXXXX:stateMachine:messaging-demo-source-ep-target-ep-StateMachine", 
+            "stopDate": 1522268224.761
+        }
+    ]
+} 
+
+```
