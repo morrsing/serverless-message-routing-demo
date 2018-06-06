@@ -1,0 +1,22 @@
+FROM node:7.8.0-alpine
+
+# Create app directory
+RUN mkdir -p /usr/src/app
+RUN mkdir -p /usr/src/app/data-templates
+WORKDIR /usr/src/app
+
+# Install app dependencies
+COPY package.json /usr/src/app/
+RUN npm install
+
+# Bundle app source
+COPY index.js /usr/src/app
+COPY mock-hl7-source-factory.js /usr/src/app
+COPY data-templates /usr/src/app/data-templates
+
+ENV FREQUENCY 1000 # 1 second
+ENV LOG_LEVEL 'info'
+ENV BATCH_SIZE 10
+
+EXPOSE 3000
+CMD ["node", "index.js"]
