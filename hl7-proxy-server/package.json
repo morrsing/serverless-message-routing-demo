@@ -11,7 +11,7 @@
   "license": "ISC",
   "dependencies": {
     "express": "^4.16.3",
-    "lodash": "^4.17.10",
+    "lodash": "^4.17.21",
     "simple-hl7": "^2.2.0",
     "superagent": "^3.8.2",
     "winston": "^2.4.2"
