@@ -38,7 +38,7 @@
     "yargs": "^9.0.1"
   },
   "dependencies": {
-    "aws-sdk": "^2.212.1",
+    "aws-sdk": "^2.814.0",
     "lodash": "^4.17.5",
     "superagent": "^3.8.2",
     "winston": "^2.4.1"
