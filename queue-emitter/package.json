@@ -38,7 +38,7 @@
     "yargs": "^9.0.1"
   },
   "dependencies": {
-    "aws-sdk": "^2.212.1"
+    "aws-sdk": "^2.814.0"
   },
   "ava": {
     "require": "babel-register"
