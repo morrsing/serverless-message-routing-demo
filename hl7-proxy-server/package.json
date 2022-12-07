@@ -10,7 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.16.3",
+    "express": "^4.18.2",
     "lodash": "^4.17.21",
     "simple-hl7": "^2.2.0",
     "superagent": "^3.8.2",
